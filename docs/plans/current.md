@@ -1,55 +1,58 @@
 # Current Project State
 
-status: complete
-phase: v5-cloud-complete-baseline-published-q1-compared
+status: in-progress
+phase: v6-purpose-driven-design-freeze
 updated: 2026-08-20
 
 ## Objective
 
-Build a reproducible NASA cFS engineering-artifact PoC that measures evidence-grounded LLM review after a fixed Hybrid Retrieval Top-K.
+Discover which unchanged NASA cFS baseline artifacts warrant human re-review after an Incoming Artifact and expose only independently supported atomic impact claims with exact source evidence.
 
-## Completed v5 milestone
+## Design decision
 
-- Frozen implementation commit `4d1519f84cd5bac836ea8125ee2d63525ad2578d` is pushed and identified by both `ecr-poc-v5-freeze` and `ecr-poc-v5-q1-freeze`.
-- The pinned NASA subset, clean baseline, 32 spans, and 18 cases remain split Direct 4 / Semantic 4 / Cross-Artifact 4 / Clean 3 / Benign 3 with target-specific exact evidence.
-- Baseline and Proposed share one 50/50 BM25+dense Top-6 candidate object sequence and fingerprint; exactly three ADK roles operate behind deterministic fail-closed gates.
-- Cloud Run revision `ecr-poc-00008-pk2` and the evaluation Job use image digest `sha256:8f4cc7cf8fa04e5832b83634b45c5139868ee7d2f8f0d56c929a49521bbe8afd`, dedicated least-privilege identities, private access, immutable GCS objects, and safe structured logging.
-- Baseline run `cloud-v5-20260820T072055Z-3efe8584` is the UI result at `published/v5/demo.json`; q1 run `cloud-v5-q1-20260820T074302Z-26e9b5e5` is retained only at `published/v5-q1/comparison.json`.
-- Both actual Vertex runs completed 18/18 cases with zero role errors and the same document-vector fingerprint `16de2823647b628bd132b13001a0232fe45c9bd44ca45796bb4e8928d3f8505a`.
-- Actual desktop/narrow browser validation passed published authority, rapid case switching, evidence/verifier/blocked inspection, provenance, and keyboard table scrolling.
-- V1-v4 manifests, results, tags, GCS prefixes, and historical evidence remain unchanged.
+- The unfinished v6 is redesigned in place; no v7 is created.
+- The normative requirements are `docs/plans/LLM 기반 우주 Engineering Change Review.md` and Decision 0001.
+- The final pipeline is deterministic Query Processor → Broad Hybrid Top-40 → typed identifier 1-hop expansion → deterministic Final Top-10 → Engineering Reviewer atomic claims → deterministic evidence validation → independent Evidence Verifier → Human Engineer.
+- Google ADK retains exactly two `LlmAgent` roles: Engineering Reviewer and Evidence Verifier.
+- The existing 20 cases become a frozen regression/diagnostic benchmark rather than an unseen preregistered evaluation.
+- A dedicated `ecr-poc-v6-design-freeze` commit/tag is created before production code is changed for this redesign. The tag never moves.
 
-## Quality result
+## Completed local implementation
 
-The q1 query-only change raised retrieval coverage from 10/12 to 12/12 and expected targets retrieved from 11/13 to 13/13. It also increased Clean/Benign false alarms from 4/6 to 5/6 and worsened mean target rank from 1.818182 to 1.923077. Baseline remains the published demo; no accuracy threshold was used as a completion condition.
+- V1-v5 tags, results, manifests, and published evidence remain untouched and pass the offline compatibility validator.
+- The official cFS v7.0.1 root commit and recursive submodules are ingested deterministically into 35,515 typed chunks with stable IDs, exact line ranges, source/content hashes, exclusions, licenses, and a byte-preserving selected-source archive. A conservative 1,800-byte content window keeps every serialized document within a locally enforced 2,000-byte provider envelope.
+- The v6 pre-freeze manifest and exactly 20 Incoming Artifact cases exist with Direct 5 / Semantic 5 / Cross-Artifact 5 / Clean 2 / Benign 3 distribution, basis sources, targets, and exact target evidence.
+- A row-major immutable embedding-index format validates vector bytes, dimensions, ordered source IDs, package identity, and fingerprint. The current 384-dimensional deterministic index is local functional evidence only.
+- The shared 50/50 BM25+dense Top-10 docket uses Incoming Artifact plus Change Analyst normalization without inserting the incoming text into the corpus.
+- `POST /api/reviews` implements strict validation, one-request admission, 429/503/502/504 boundaries, three overall statuses, sanitized response/logging, and reviewer/verifier fail-closed `INCONCLUSIVE` handling.
+- `/` is the Live Review flow and `/evaluation` is the separate preregistered result surface. Both reuse the docket/evidence grammar under provisional Foundation 0.2.
+- Deployment scripts target `frozen/ecr-poc-v6`, `runs/v6`, and `published/v6/demo.json`, configure a private max-instance-1/concurrency-1/300-second service, and retain explicit approval switches.
+- The original project requirements document now starts from a user-submitted Incoming Artifact and is synchronized with the v6 input/API contract, exact three-Agent responsibilities, frozen retrieval/index boundary, Live/Evaluation UI split, and current failure-oriented test matrix; mutation-arm language is retained only as an explicit historical non-goal.
 
-## Verification state
+## Current validation state
 
-| Check | Result |
-| --- | --- |
-| Data and history | active v5 plus offline v1-v4 validation pass |
-| Pipeline and fail-closed | strict result validation passes for both Vertex runs; exact-span/off-Top-K/cardinality/verifier/provider failure tests pass |
-| Local quality gates | pytest, Ruff, mypy, build, PowerShell parsing, result comparison, and historical diff pass |
-| Cloud | private service, same service/Job digest, GCS pointer seals, minimum IAM, 1/18/1 structured logs, and prohibited-field audit pass |
-| UI | actual baseline published result passes desktop/narrow, 20 rapid transitions, blocked-record selection, provenance, and keyboard scroll |
+- `validate-data`: passing for 35,515 artifacts and 20 cases after exact-evidence-preserving source-ID remapping.
+- `validate-historical`: passing for v1-v5, including both v5 baseline and q1 actual results.
+- Two independent ingests of the same recursive checkout produced byte-identical artifact packages, provenance manifests, raw-source archives, artifact ordering, and hashes.
+- Full pytest passed with 54 tests; Ruff, mypy, package build, and all five PowerShell parser checks pass after the provider-limit correction.
+- Vertex document generation checkpoints each completed batch as hash/vector-only local cache shards, so a later provider failure does not rebill completed batches; live Incoming Artifact queries bypass disk caching.
+- Actual in-app browser review passed at 1440×900 and 390×844 for Live Review and Evaluation, including long input, validation recovery, review-required/no-review/inconclusive states, rapid case switching, fail-closed evidence display, focus transfer, and narrow table containment.
+- No Vertex document embedding, GCP provisioning, deployment, 20-case Job, or publish action has been executed for v6.
 
-## Related artifacts
+## Vertex embedding attempt
 
-- Original plan: `docs/plans/LLM 기반 우주 Engineering Change Review.md`
-- Protocol: `docs/experiment-protocol-v5.md`
-- Report: `docs/results/experiment-report-v5.md`
-- Baseline result: `results/runs/vertex-adk-v5.json`
-- q1 result: `results/runs/vertex-adk-v5-q1.json`
-- Actual comparison: `results/comparisons/v5-vertex-baseline-vs-v5-q1.json`
-- Deployment log: `docs/results/deployment-log.md`
-- Completion audit: `docs/completion-audit.md`
-- Published UI review: `docs/ui/reviews/2026-08-20-published-v5-docket.md`
-- UI Foundation: `docs/ui/foundation.md` remains provisional; validation does not promote governance status.
+- The first approved generation completed 140 provider batches and retained 13,389 unique document vectors before stopping on a provider `INVALID_ARGUMENT`: one 3,982-byte serialized C function was reported as 2,489 tokens, above the model's 2,048-token limit.
+- The failed attempt was not retried. No GCS object, deployment, Job, or published pointer was created.
+- The ingest boundary was corrected locally without truncation; two fresh ingests are byte-identical and the maximum serialized document is now 1,923 bytes. Of 32,921 unique serialized texts in the corrected corpus, 10,381 reuse an existing checkpoint and 22,540 remain (226 batches). Duplicate texts are submitted only once.
+
+## Approval-gated blocker
+
+The next irreversible/billable checkpoint is a resumed generation of the official 768-dimensional `gemini-embedding-001` `RETRIEVAL_DOCUMENT` matrix against the corrected 35,515-chunk corpus. Immediately before that call, a new explicit user approval is required. The pre-freeze manifest must then be updated with the Vertex vector/index hashes and immutable GCS generation evidence before commit/tag.
 
 ## Next checkpoint
 
-No required v5 work remains. Any subsequent quality iteration must change one of prompt, retrieval, or verifier at a time under a new experiment identity and receive fresh billable approval before Vertex execution.
+Finish the corrected-corpus full local regression, then request approval to resume the Vertex document embedding generation using the preserved per-text cache. After validating that index, separately approve the four-object immutable GCS payload upload, pin its generation inventory in the manifest, and rerun the final freeze gate. Do not create the v6 freeze tag or deploy the live billable service while the manifest still identifies the local deterministic index.
 
-## Update rules
+## Preserved v5 milestone
 
-Update this document only when the active milestone, scope, major result, blocker, validation state, or next checkpoint changes materially.
+The v5 implementation freeze remains `4d1519f84cd5bac836ea8125ee2d63525ad2578d`; baseline run `cloud-v5-20260820T072055Z-3efe8584` remains at `published/v5/demo.json`, and q1 remains at `published/v5-q1/comparison.json`. V5 and v6 performance are not compared.
