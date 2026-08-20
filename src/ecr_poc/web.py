@@ -3,8 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import tempfile
 import threading
 import time
+import uuid
+from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
@@ -13,21 +16,120 @@ from fastapi.staticfiles import StaticFiles
 
 from .data import (
     ACTIVE_EXPERIMENT_ID,
+    DEFAULT_EXPERIMENT_MANIFEST,
+    active_data_root,
     load_artifacts,
     load_cases,
-    repository_root,
+    load_experiment_manifest,
     validate_all,
 )
+from .embedding_index import load_embedding_index
+from .evaluation import build_provider
+from .identifier_index import load_identifier_index
+from .models import (
+    CaseDefinition,
+    IncomingArtifact,
+    LiveReviewRequest,
+    LiveReviewResponse,
+)
+from .observability import log_event
 from .pipeline import run_case
-from .providers import FixtureProvider
-from .retrieval import HybridRetriever, build_embedder
-from .storage import load_published_run
+from .prompts import load_prompt_bundle
+from .providers import FixtureProvider, ReviewProvider
+from .retrieval import DeterministicHashEmbedder, HybridRetriever, build_embedder
+from .storage import load_published_run, materialize_gcs_prefix
 
 STATIC_DIR = Path(__file__).parent / "static"
 _PUBLISHED_CACHE_LOCK = threading.Lock()
 _PUBLISHED_CACHE: tuple[
     float, str, dict[str, object], dict[str, str]
 ] | None = None
+_LIVE_EXECUTION_LOCK = threading.Lock()
+_LIVE_RUNTIME_LOCK = threading.Lock()
+_LIVE_RUNTIME: LiveRuntime | None = None
+_RUNTIME_DATA_ROOT: Path | None = None
+
+
+@dataclass(frozen=True)
+class LiveRuntime:
+    baseline_id: str
+    top_k: int
+    retriever: HybridRetriever
+    provider: ReviewProvider
+
+
+def _runtime_data_root() -> Path:
+    global _RUNTIME_DATA_ROOT
+    if _RUNTIME_DATA_ROOT is not None:
+        return _RUNTIME_DATA_ROOT
+    if os.environ.get("ECR_RESULT_STORE", "local") != "gcs":
+        _RUNTIME_DATA_ROOT = active_data_root()
+        return _RUNTIME_DATA_ROOT
+    bucket = os.environ.get("ECR_GCS_BUCKET")
+    prefix = os.environ.get("ECR_GCS_INPUT_PREFIX")
+    if not bucket or not prefix:
+        raise RuntimeError("GCS runtime requires ECR_GCS_BUCKET and ECR_GCS_INPUT_PREFIX")
+    target = Path(tempfile.mkdtemp(prefix="ecr-poc-v6-"))
+    materialize_gcs_prefix(bucket, prefix, target)
+    _RUNTIME_DATA_ROOT = target
+    os.environ["ECR_DATA_ROOT"] = str(target)
+    return target
+
+
+def _build_live_runtime() -> LiveRuntime:
+    root = _runtime_data_root()
+    validate_all(root)
+    manifest = load_experiment_manifest(root, DEFAULT_EXPERIMENT_MANIFEST)
+    artifacts = load_artifacts(root, DEFAULT_EXPERIMENT_MANIFEST)
+    metadata_relative = str(manifest["embedding_index_file"])
+    frozen_index = load_embedding_index(root, metadata_relative, artifacts)
+    embedding_provider = os.environ.get("ECR_LIVE_EMBEDDING", "local")
+    embedder = build_embedder(embedding_provider)
+    if embedder.model_name != frozen_index.model_name:
+        if (
+            os.environ.get("ECR_LIVE_PROVIDER", "fixture") == "fixture"
+            and embedding_provider == "local"
+        ):
+            embedder = DeterministicHashEmbedder(frozen_index.dimensions)
+        else:
+            raise RuntimeError("Live query embedding model does not match the frozen index")
+    retriever = HybridRetriever(
+        artifacts,
+        embedder,
+        document_embeddings=frozen_index.vectors,
+        embedding_index_fingerprint=frozen_index.fingerprint,
+        identifier_index=load_identifier_index(
+            root / str(manifest["identifier_index_file"]),
+            artifacts,
+            expected_artifact_package_sha256=str(
+                manifest["files"][str(manifest["artifact_package_file"])]
+            ),
+            expected_sha256=str(
+                manifest["files"][str(manifest["identifier_index_file"])]
+            ),
+        ),
+    )
+    prompt_bundle = load_prompt_bundle(root, str(manifest["prompt_file"]))
+    provider = build_provider(
+        os.environ.get("ECR_LIVE_PROVIDER", "fixture"),
+        prompt_bundle=prompt_bundle,
+    )
+    return LiveRuntime(
+        baseline_id=str(manifest["baseline_id"]),
+        top_k=int(manifest["top_k"]),
+        retriever=retriever,
+        provider=provider,
+    )
+
+
+def _live_runtime() -> LiveRuntime:
+    global _LIVE_RUNTIME
+    if _LIVE_RUNTIME is not None:
+        return _LIVE_RUNTIME
+    with _LIVE_RUNTIME_LOCK:
+        if _LIVE_RUNTIME is None:
+            _LIVE_RUNTIME = _build_live_runtime()
+    return _LIVE_RUNTIME
 
 app = FastAPI(
     title="Evidence-grounded Engineering Change Review PoC",
@@ -48,8 +150,8 @@ async def prevent_stale_evaluation_cache(request: Request, call_next) -> Respons
 
 
 def _local_evaluation() -> dict[str, object]:
-    root = repository_root()
-    active_result = root / "results" / "runs" / "fixture-v5-baseline.json"
+    root = Path(__file__).resolve().parents[2]
+    active_result = root / "results" / "runs" / "fixture-v6-baseline.json"
     path = active_result if active_result.exists() else root / "results" / "latest.json"
     if not path.exists():
         raise RuntimeError("no local published evaluation result")
@@ -67,7 +169,7 @@ def _published_evaluation_sync() -> tuple[dict[str, object], dict[str, str]]:
         [
             os.environ.get("ECR_RESULT_STORE", "local"),
             os.environ.get("ECR_GCS_BUCKET", ""),
-            os.environ.get("ECR_PUBLISHED_OBJECT", "published/v5/demo.json"),
+            os.environ.get("ECR_PUBLISHED_OBJECT", "published/v6/demo.json"),
             os.environ.get("ECR_FREEZE_VERSION", ACTIVE_EXPERIMENT_ID),
         ]
     )
@@ -92,12 +194,13 @@ def _published_evaluation_sync() -> tuple[dict[str, object], dict[str, str]]:
 def _load_published_evaluation_uncached() -> tuple[dict[str, object], dict[str, str]]:
     result_store = os.environ.get("ECR_RESULT_STORE", "local")
     if result_store == "gcs":
+        _runtime_data_root()
         bucket = os.environ.get("ECR_GCS_BUCKET")
         if not bucket:
             raise RuntimeError("ECR_GCS_BUCKET is required when ECR_RESULT_STORE=gcs")
         run, pointer = load_published_run(
             bucket,
-            os.environ.get("ECR_PUBLISHED_OBJECT", "published/v5/demo.json"),
+            os.environ.get("ECR_PUBLISHED_OBJECT", "published/v6/demo.json"),
         )
         return run.model_dump(mode="json"), {
             "result_store": "gcs",
@@ -108,6 +211,11 @@ def _load_published_evaluation_uncached() -> tuple[dict[str, object], dict[str, 
             "embedding_index_fingerprint": (
                 run.provenance.embedding_index_fingerprint
                 if run.provenance and run.provenance.embedding_index_fingerprint
+                else ""
+            ),
+            "identifier_index_fingerprint": (
+                run.provenance.identifier_index_fingerprint
+                if run.provenance and run.provenance.identifier_index_fingerprint
                 else ""
             ),
         }
@@ -125,6 +233,9 @@ def _load_published_evaluation_uncached() -> tuple[dict[str, object], dict[str, 
         "embedding_index_fingerprint": str(
             provenance.get("embedding_index_fingerprint", "")
         ),
+        "identifier_index_fingerprint": str(
+            provenance.get("identifier_index_fingerprint", "")
+        ),
     }
 
 
@@ -141,7 +252,7 @@ async def health() -> dict[str, str]:
 @app.get("/readyz")
 async def readiness() -> dict[str, str]:
     try:
-        validate_all()
+        validate_all(await asyncio.to_thread(_runtime_data_root))
         _, metadata = await _published_evaluation()
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"integrity check failed: {error}") from error
@@ -151,7 +262,8 @@ async def readiness() -> dict[str, str]:
 @app.get("/integrity")
 async def integrity() -> dict[str, object]:
     try:
-        counts = validate_all()
+        root = await asyncio.to_thread(_runtime_data_root)
+        counts = validate_all(root)
         payload, metadata = await _published_evaluation()
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"integrity check failed: {error}") from error
@@ -167,7 +279,8 @@ async def integrity() -> dict[str, object]:
 
 @app.get("/api/cases")
 async def cases() -> dict[str, object]:
-    experiment_id, top_k, frozen_cases = load_cases()
+    root = await asyncio.to_thread(_runtime_data_root)
+    experiment_id, top_k, frozen_cases = load_cases(root)
     return {
         "experiment_id": experiment_id,
         "top_k": top_k,
@@ -190,7 +303,8 @@ async def case_result(
     case_id: str,
     source: str = Query(default="fixture", pattern="^(fixture|latest|published)$"),
 ) -> dict[str, object]:
-    _, top_k, frozen_cases = load_cases()
+    root = await asyncio.to_thread(_runtime_data_root)
+    _, top_k, frozen_cases = load_cases(root)
     case = next((item for item in frozen_cases if item.id == case_id), None)
     if case is None:
         raise HTTPException(status_code=404, detail="unknown frozen case")
@@ -210,7 +324,7 @@ async def case_result(
             "result": saved_result,
         }
 
-    retriever = HybridRetriever(load_artifacts(), build_embedder("local"))
+    retriever = (await asyncio.to_thread(_live_runtime)).retriever
     provider = FixtureProvider(inject_unsupported=True)
     fixture_result = await run_case(case, retriever, provider, top_k)
     return {
@@ -230,6 +344,93 @@ async def published_evaluation() -> dict[str, object]:
     return payload
 
 
+def _live_case(request_id: str, incoming: IncomingArtifact) -> CaseDefinition:
+    label = incoming.title or incoming.subsystem or incoming.artifact_type.value
+    return CaseDefinition(
+        id=f"LIVE-{request_id}",
+        type="live",
+        scenario=label,
+        incoming_artifact=incoming,
+        expected_review_targets=[],
+    )
+
+
+@app.post("/api/reviews", response_model=LiveReviewResponse)
+async def create_review(payload: LiveReviewRequest) -> LiveReviewResponse:
+    if not _LIVE_EXECUTION_LOCK.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="Another engineering review is running")
+    request_id = str(uuid.uuid4())
+    started = time.monotonic()
+    try:
+        try:
+            runtime = await asyncio.to_thread(_live_runtime)
+        except Exception as error:
+            log_event(
+                "live_review_unavailable",
+                severity="ERROR",
+                request_id=request_id,
+                artifact_type=payload.incoming_artifact.artifact_type,
+                blocked_stage="embedding_index_readiness",
+                error_type=type(error).__name__,
+            )
+            raise HTTPException(status_code=503, detail="Review index is not ready") from error
+        case = _live_case(request_id, payload.incoming_artifact)
+        try:
+            result = await run_case(
+                case,
+                runtime.retriever,
+                runtime.provider,
+                runtime.top_k,
+                evaluation_run_id=request_id,
+            )
+        except TimeoutError as error:
+            raise HTTPException(status_code=504, detail="Query embedding timed out") from error
+        except Exception as error:
+            raise HTTPException(status_code=502, detail="Query embedding failed") from error
+        assert result.overall_status is not None
+        assert result.embedding_index_fingerprint is not None
+        assert result.identifier_index_fingerprint is not None
+        assert result.query_processing is not None
+        assert result.retrieval is not None
+        verified = sum(
+            review.status == "VERIFIED_REVIEW" for review in result.candidate_results
+        )
+        blocked = sum(review.blocked_count for review in result.candidate_results)
+        log_event(
+            "live_review_completed",
+            request_id=request_id,
+            artifact_type=payload.incoming_artifact.artifact_type,
+            model=result.model,
+            overall_status=result.overall_status,
+            candidate_fingerprint=result.candidate_fingerprint,
+            verified=verified,
+            blocked=blocked,
+            latency_ms=round((time.monotonic() - started) * 1000),
+        )
+        return LiveReviewResponse(
+            request_id=request_id,
+            baseline_id=runtime.baseline_id,
+            provider=result.provider,
+            model=result.model,
+            embedding_model=result.embedding_model,
+            embedding_index_fingerprint=result.embedding_index_fingerprint,
+            identifier_index_fingerprint=result.identifier_index_fingerprint,
+            query_processing=result.query_processing,
+            retrieval=result.retrieval,
+            final_docket=result.candidates,
+            candidate_results=result.candidate_results,
+            overall_status=result.overall_status,
+            partial=result.partial,
+        )
+    finally:
+        _LIVE_EXECUTION_LOCK.release()
+
+
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/evaluation")
+async def evaluation_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "evaluation.html")

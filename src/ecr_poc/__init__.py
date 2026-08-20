@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import os
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -14,8 +15,12 @@ from .data import (
     validate_all,
     validate_historical_versions,
 )
+from .embedding_index import write_embedding_index
 from .evaluation import evaluate
+from .identifier_index import write_identifier_index
+from .ingest import write_corpus
 from .quality import write_comparison
+from .retrieval import DeterministicHashEmbedder, VertexEmbedder
 from .storage import (
     GcsRunStore,
     load_published_run,
@@ -23,6 +28,7 @@ from .storage import (
     publish_run,
     seed_historical_pointer,
     upload_frozen_tree,
+    v6_freeze_payload_relatives,
     validate_historical_runs,
 )
 
@@ -45,7 +51,7 @@ def _parser() -> argparse.ArgumentParser:
     subcommands.add_parser("validate-data", help="verify frozen cases and NASA source hashes")
     subcommands.add_parser(
         "validate-historical",
-        help="offline-only validation of immutable v1-v4 data and manifests",
+        help="offline-only validation of immutable v1-v5 data and manifests",
     )
     evaluation = subcommands.add_parser("evaluate", help="run all pre-registered cases")
     evaluation.add_argument("--provider", choices=["fixture", "vertex-adk"], required=True)
@@ -85,7 +91,18 @@ def _parser() -> argparse.ArgumentParser:
         "upload-freeze", help="immutably upload frozen inputs to GCS"
     )
     upload_freeze.add_argument("--bucket", required=True)
-    upload_freeze.add_argument("--prefix", default="frozen/ecr-poc-v5")
+    upload_freeze.add_argument("--prefix", default="frozen/ecr-poc-v6")
+    upload_freeze.add_argument("--root", type=Path, default=Path.cwd())
+    upload_freeze.add_argument(
+        "--payload-only",
+        action="store_true",
+        help="upload only the five v6 payload objects needed before the Git freeze",
+    )
+    upload_freeze.add_argument(
+        "--inventory-output",
+        type=Path,
+        help="write the returned generation/SHA inventory to a local JSON file",
+    )
     upload_history = subcommands.add_parser(
         "upload-historical", help="immutably upload the retained v1 result to GCS"
     )
@@ -101,16 +118,41 @@ def _parser() -> argparse.ArgumentParser:
     publish.add_argument("--run-id", required=True)
     publish.add_argument("--source-commit", required=True)
     publish.add_argument("--experiment-manifest", required=True)
-    publish.add_argument("--run-prefix", default="runs/v5")
-    publish.add_argument("--published-object", default="published/v5/demo.json")
+    publish.add_argument("--run-prefix", default="runs/v6")
+    publish.add_argument("--published-object", default="published/v6/demo.json")
     verify = subcommands.add_parser(
         "verify-published", help="validate the published GCS evaluation pointer"
     )
     verify.add_argument("--bucket", required=True)
-    verify.add_argument("--published-object", default="published/v5/demo.json")
+    verify.add_argument("--published-object", default="published/v6/demo.json")
     serve = subcommands.add_parser("serve", help="run the Demo UI/API")
     serve.add_argument("--host", default="0.0.0.0")
     serve.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8080")))
+    ingest = subcommands.add_parser(
+        "ingest-cfs", help="deterministically ingest an official recursive cFS checkout"
+    )
+    ingest.add_argument("--source", type=Path, required=True)
+    ingest.add_argument("--output-root", type=Path, required=True)
+    stage = subcommands.add_parser(
+        "stage-v6-inputs", help="stage tracked v6 cases, prompt, and manifest into a data root"
+    )
+    stage.add_argument("--output-root", type=Path, required=True)
+    index = subcommands.add_parser(
+        "build-index", help="create an immutable row-major document embedding index"
+    )
+    index.add_argument("--data-root", type=Path, required=True)
+    index.add_argument("--provider", choices=["local", "vertex"], required=True)
+    index.add_argument("--dimensions", type=int)
+    index.add_argument(
+        "--cache-path",
+        type=Path,
+        help="local resumable hash/vector cache used only while building a Vertex index",
+    )
+    identifier_index = subcommands.add_parser(
+        "build-identifier-index",
+        help="create the deterministic typed one-hop identifier index",
+    )
+    identifier_index.add_argument("--data-root", type=Path, required=True)
     return parser
 
 
@@ -118,6 +160,74 @@ def main() -> None:
     args = _parser().parse_args()
     if args.command == "validate-data":
         print(json.dumps(validate_all(), indent=2))
+        return
+    if args.command == "ingest-cfs":
+        print(json.dumps(write_corpus(args.source, args.output_root), indent=2))
+        return
+    if args.command == "stage-v6-inputs":
+        root = Path.cwd()
+        staged: list[str] = []
+        for relative in (
+            "data/cases/cases-v6.json",
+            "data/prompts/ecr-poc-v6.json",
+            "data/experiments/ecr-poc-v6.json",
+            "docs/plans/LLM 기반 우주 Engineering Change Review.md",
+        ):
+            source = root / relative
+            destination = args.output_root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, destination)
+            staged.append(relative)
+        print(json.dumps({"staged": staged}, indent=2))
+        return
+    if args.command == "build-identifier-index":
+        from .data import load_artifacts, load_experiment_manifest, sha256_file
+
+        manifest = load_experiment_manifest(args.data_root, DEFAULT_EXPERIMENT_MANIFEST)
+        artifacts = load_artifacts(args.data_root, DEFAULT_EXPERIMENT_MANIFEST)
+        package_path = args.data_root / str(manifest["artifact_package_file"])
+        destination = args.data_root / str(manifest["identifier_index_file"])
+        print(
+            json.dumps(
+                write_identifier_index(
+                    destination,
+                    artifacts,
+                    sha256_file(package_path),
+                ),
+                indent=2,
+            )
+        )
+        return
+    if args.command == "build-index":
+        from .data import load_artifacts, load_experiment_manifest, sha256_file
+
+        manifest = load_experiment_manifest(args.data_root, DEFAULT_EXPERIMENT_MANIFEST)
+        artifacts = load_artifacts(args.data_root, DEFAULT_EXPERIMENT_MANIFEST)
+        if args.provider == "vertex":
+            project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+            if not project:
+                raise SystemExit("GOOGLE_CLOUD_PROJECT is required for Vertex embeddings")
+            dimensions = args.dimensions or 768
+            embedder: VertexEmbedder | DeterministicHashEmbedder = VertexEmbedder(
+                project=project,
+                location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+                model_name="gemini-embedding-001",
+                output_dimensionality=dimensions,
+                cache_path=args.cache_path,
+            )
+        else:
+            dimensions = args.dimensions or 384
+            embedder = DeterministicHashEmbedder(dimensions)
+        package_path = args.data_root / str(manifest["artifact_package_file"])
+        metadata = write_embedding_index(
+            artifacts,
+            embedder,
+            args.data_root,
+            experiment_id=str(manifest["experiment_id"]),
+            dimensions=dimensions,
+            artifact_package_sha256=sha256_file(package_path),
+        )
+        print(json.dumps(metadata, indent=2))
         return
     if args.command == "validate-historical":
         print(
@@ -188,14 +298,14 @@ def main() -> None:
         bucket = os.environ["ECR_GCS_BUCKET"]
         run_id = os.environ["ECR_RUN_ID"]
         source_commit = os.environ["ECR_SOURCE_COMMIT"]
-        input_prefix = os.environ.get("ECR_GCS_INPUT_PREFIX", "frozen/ecr-poc-v5")
+        input_prefix = os.environ.get("ECR_GCS_INPUT_PREFIX", "frozen/ecr-poc-v6")
         with tempfile.TemporaryDirectory(prefix="ecr-poc-input-") as temporary:
             root = Path(temporary)
             materialize_gcs_prefix(bucket, input_prefix, root)
             store = GcsRunStore(
                 bucket,
                 run_id,
-                prefix=os.environ.get("ECR_GCS_RUN_PREFIX", "runs/v5"),
+                prefix=os.environ.get("ECR_GCS_RUN_PREFIX", "runs/v6"),
             )
             run = asyncio.run(
                 evaluate(
@@ -216,11 +326,21 @@ def main() -> None:
         print(json.dumps(run.metrics, indent=2))
         return
     if args.command == "upload-freeze":
-        print(
-            json.dumps(
-                upload_frozen_tree(Path.cwd(), args.bucket, args.prefix), indent=2
-            )
+        relatives = (
+            v6_freeze_payload_relatives(args.root) if args.payload_only else None
         )
+        inventory = upload_frozen_tree(
+            args.root,
+            args.bucket,
+            args.prefix,
+            only_relatives=relatives,
+        )
+        if args.inventory_output is not None:
+            args.inventory_output.parent.mkdir(parents=True, exist_ok=True)
+            args.inventory_output.write_text(
+                json.dumps(inventory, indent=2) + "\n", encoding="utf-8"
+            )
+        print(json.dumps(inventory, indent=2))
         return
     if args.command == "upload-historical":
         print(

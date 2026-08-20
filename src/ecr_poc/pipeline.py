@@ -6,90 +6,65 @@ import json
 import os
 import time
 import uuid
-from collections import Counter
-from collections.abc import Sequence
+from collections import Counter, defaultdict
 from datetime import UTC, datetime
 
+from .claim_validation import validate_candidate_decisions
 from .models import (
+    CandidateDecision,
+    CandidateDecisionBatch,
+    CandidateFinalStatus,
     CaseDefinition,
+    ClaimVerification,
+    ClaimVerificationBatch,
     Decision,
     FinalReview,
     FinalStatus,
+    OverallReviewStatus,
     PipelineResult,
-    RetrievedCandidate,
-    ReviewBatch,
-    ReviewItem,
     RoleTrace,
-    VerificationBatch,
+    VerifiedClaim,
     VerifierVerdict,
 )
 from .observability import log_event
 from .providers import ReviewProvider
-from .retrieval import HybridRetriever, candidate_fingerprint
+from .retrieval import FINAL_K, HybridRetriever
 
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _same_candidates(
-    baseline: Sequence[RetrievedCandidate], proposed: Sequence[RetrievedCandidate]
-) -> bool:
-    return candidate_fingerprint(baseline) == candidate_fingerprint(proposed)
-
-
 async def run_case(
     case: CaseDefinition,
     retriever: HybridRetriever,
     provider: ReviewProvider,
-    top_k: int,
+    top_k: int = FINAL_K,
     *,
     evaluation_run_id: str | None = None,
     role_timeout_seconds: float | None = None,
 ) -> PipelineResult:
+    if case.incoming_artifact is None:
+        raise ValueError("Purpose-driven v6 requires an Incoming Artifact")
+    if top_k != FINAL_K:
+        raise ValueError("Purpose-driven v6 Final Review Docket must contain Top-10")
     started_at = _now()
     run_id = evaluation_run_id or str(uuid.uuid4())
     timeout = role_timeout_seconds or float(os.environ.get("ECR_ROLE_TIMEOUT_SECONDS", "120"))
+    retrieval = retriever.retrieve(case.incoming_artifact, final_k=top_k)
+    candidates = retrieval.final_docket
     role_traces: list[RoleTrace] = []
+    reviewer_failed = False
+
     role_started = time.monotonic()
     try:
-        structured_change, analyst_trace = await asyncio.wait_for(
-            provider.analyze(case), timeout=timeout
-        )
-    except Exception as error:
-        log_event(
-            "role_failed",
-            severity="ERROR",
-            run_id=run_id,
-            case_id=case.id,
-            role="change_analyst",
-            model=provider.model_name,
-            latency_ms=round((time.monotonic() - role_started) * 1000),
-            error_type=type(error).__name__,
-        )
-        raise
-    role_traces.append(analyst_trace)
-    log_event(
-        "role_completed",
-        run_id=run_id,
-        case_id=case.id,
-        role="change_analyst",
-        model=provider.model_name,
-        latency_ms=round((time.monotonic() - role_started) * 1000),
-    )
-
-    # This object is intentionally shared by both arms. A copied/re-ranked list
-    # is not created for Proposed.
-    candidates = retriever.retrieve(structured_change, top_k, case=case)
-    baseline_candidates = candidates
-    proposed_candidates = candidates
-    if not _same_candidates(baseline_candidates, proposed_candidates):
-        raise RuntimeError("Baseline and Proposed candidate fingerprints differ")
-
-    try:
-        role_started = time.monotonic()
-        review_batch, review_trace = await asyncio.wait_for(
-            provider.review(case, structured_change, proposed_candidates), timeout=timeout
+        decision_batch, review_trace = await asyncio.wait_for(
+            provider.review(
+                case,
+                candidates,
+                retrieval.summary.final_docket_fingerprint,
+            ),
+            timeout=timeout,
         )
         role_traces.append(review_trace)
         log_event(
@@ -100,15 +75,15 @@ async def run_case(
             model=provider.model_name,
             latency_ms=round((time.monotonic() - role_started) * 1000),
         )
-    except Exception as error:  # noqa: BLE001 - review failures must fail closed
-        review_batch = ReviewBatch(
-            reviews=[
-                ReviewItem(
+    except Exception as error:  # noqa: BLE001 - reviewer failures fail closed
+        reviewer_failed = True
+        decision_batch = CandidateDecisionBatch(
+            decisions=[
+                CandidateDecision(
                     source_id=candidate.source_id,
                     decision=Decision.INSUFFICIENT_EVIDENCE,
-                    short_reason="Engineering Review provider failed; no advice exposed.",
                 )
-                for candidate in proposed_candidates
+                for candidate in candidates
             ]
         )
         role_traces.append(
@@ -116,8 +91,6 @@ async def run_case(
                 role="engineering_review",
                 provider=provider.name,
                 model=provider.model_name,
-                raw_output="",
-                parsed=review_batch.model_dump(mode="json"),
                 error=f"{type(error).__name__}: {error}",
             )
         )
@@ -131,87 +104,21 @@ async def run_case(
             latency_ms=round((time.monotonic() - role_started) * 1000),
             error_type=type(error).__name__,
         )
-    candidate_by_id = {candidate.source_id: candidate for candidate in candidates}
-    proposal_counts = Counter(item.source_id for item in review_batch.reviews)
-    seen: set[str] = set()
-    valid_for_verifier: list[ReviewItem] = []
-    final_reviews: list[FinalReview] = []
 
-    for proposal in review_batch.reviews:
-        seen.add(proposal.source_id)
-        if proposal_counts[proposal.source_id] != 1:
-            final_reviews.append(
-                FinalReview(
-                    source_id=proposal.source_id,
-                    status=FinalStatus.REJECTED_UNSUPPORTED,
-                    short_reason=proposal.short_reason,
-                    blocked_stage="schema_duplicate_source",
-                )
-            )
-            continue
-        candidate = candidate_by_id.get(proposal.source_id)
-        if candidate is None:
-            final_reviews.append(
-                FinalReview(
-                    source_id=proposal.source_id,
-                    status=FinalStatus.REJECTED_UNSUPPORTED,
-                    short_reason=proposal.short_reason,
-                    blocked_stage="source_not_in_fixed_top_k",
-                )
-            )
-            continue
-        if proposal.decision is Decision.REVIEW:
-            if not proposal.evidence or proposal.evidence not in candidate.content:
-                final_reviews.append(
-                    FinalReview(
-                        source_id=proposal.source_id,
-                        status=FinalStatus.REJECTED_UNSUPPORTED,
-                        short_reason=proposal.short_reason,
-                        blocked_stage="deterministic_exact_span",
-                    )
-                )
-                continue
-            valid_for_verifier.append(proposal)
-        elif proposal.decision is Decision.NO_REVIEW:
-            final_reviews.append(
-                FinalReview(
-                    source_id=proposal.source_id,
-                    status=FinalStatus.NO_REVIEW,
-                    short_reason=proposal.short_reason,
-                )
-            )
-        else:
-            final_reviews.append(
-                FinalReview(
-                    source_id=proposal.source_id,
-                    status=FinalStatus.INSUFFICIENT_EVIDENCE,
-                    evidence=proposal.evidence,
-                    short_reason=proposal.short_reason,
-                )
-            )
+    validation = validate_candidate_decisions(decision_batch, candidates)
+    if reviewer_failed:
+        for result in validation.candidate_results.values():
+            result.status = CandidateFinalStatus.BLOCKED
+            result.blocked_count += 1
+            result.blocked_stages.append("engineering_review_provider")
 
-    for candidate in candidates:
-        if candidate.source_id not in seen:
-            final_reviews.append(
-                FinalReview(
-                    source_id=candidate.source_id,
-                    status=FinalStatus.REJECTED_UNSUPPORTED,
-                    short_reason="Engineering Review returned no decision for this fixed candidate.",
-                    blocked_stage="schema_missing_source",
-                )
-            )
-
-    verification = VerificationBatch(verifications=[])
-    if valid_for_verifier:
+    verification_batch = ClaimVerificationBatch(verifications=[])
+    verifier_failed = False
+    if validation.valid_claims and not reviewer_failed:
+        role_started = time.monotonic()
         try:
-            role_started = time.monotonic()
-            verification, verifier_trace = await asyncio.wait_for(
-                provider.verify(
-                    case,
-                    structured_change,
-                    valid_for_verifier,
-                    proposed_candidates,
-                ),
+            verification_batch, verifier_trace = await asyncio.wait_for(
+                provider.verify(case, validation.valid_claims),
                 timeout=timeout,
             )
             role_traces.append(verifier_trace)
@@ -223,13 +130,13 @@ async def run_case(
                 model=provider.model_name,
                 latency_ms=round((time.monotonic() - role_started) * 1000),
             )
-        except Exception as error:  # noqa: BLE001 - provider failures must fail closed
+        except Exception as error:  # noqa: BLE001 - verifier failures fail closed
+            verifier_failed = True
             role_traces.append(
                 RoleTrace(
                     role="evidence_verifier",
                     provider=provider.name,
                     model=provider.model_name,
-                    raw_output="",
                     error=f"{type(error).__name__}: {error}",
                 )
             )
@@ -243,88 +150,177 @@ async def run_case(
                 latency_ms=round((time.monotonic() - role_started) * 1000),
                 error_type=type(error).__name__,
             )
-    else:
-        log_event(
-            "verifier_skipped",
-            run_id=run_id,
-            case_id=case.id,
-            blocked_stage="no_exact_review_proposals",
-        )
 
-    verification_counts = Counter(item.source_id for item in verification.verifications)
-    verification_by_id = {item.source_id: item for item in verification.verifications}
-    for proposal in valid_for_verifier:
-        verdict = verification_by_id.get(proposal.source_id)
-        if verification_counts[proposal.source_id] == 1 and verdict and verdict.supported:
-            final_reviews.append(
-                FinalReview(
-                    source_id=proposal.source_id,
-                    status=FinalStatus.VERIFIED_REVIEW,
-                    evidence=proposal.evidence,
-                    short_reason=proposal.short_reason,
-                    verifier_reason=verdict.reason,
+    verification_counts = Counter(
+        verification.claim_id for verification in verification_batch.verifications
+    )
+    verification_by_id = {
+        verification.claim_id: verification
+        for verification in verification_batch.verifications
+    }
+    claims_by_source = defaultdict(list)
+    for claim in validation.valid_claims:
+        claims_by_source[claim.source_id].append(claim)
+
+    effective_verifications: list[ClaimVerification] = []
+    for candidate in candidates:
+        result = validation.candidate_results[candidate.source_id]
+        decision = validation.decisions_by_source.get(candidate.source_id)
+        if decision is not Decision.REVIEW or reviewer_failed:
+            continue
+        for claim in claims_by_source[candidate.source_id]:
+            verification = verification_by_id.get(claim.claim_id)
+            if (
+                verifier_failed
+                or verification_counts[claim.claim_id] != 1
+                or verification is None
+            ):
+                result.blocked_count += 1
+                result.blocked_stages.append(
+                    "evidence_verifier_provider"
+                    if verifier_failed
+                    else "verifier_duplicate_verdict"
+                    if verification_counts[claim.claim_id] > 1
+                    else "verifier_missing_verdict"
                 )
-            )
+                result.verifier_verdicts.append(VerifierVerdict.MISSING)
+                effective_verifications.append(
+                    ClaimVerification(
+                        claim_id=claim.claim_id,
+                        verdict=VerifierVerdict.MISSING,
+                        reason="Verifier verdict unavailable; claim withheld.",
+                    )
+                )
+                continue
+            effective_verifications.append(verification)
+            result.verifier_verdicts.append(verification.verdict)
+            if verification.verdict is VerifierVerdict.SUPPORTED:
+                result.verified_claims.append(
+                    VerifiedClaim(
+                        claim_id=claim.claim_id,
+                        source_id=claim.source_id,
+                        impact_type=claim.impact_type,
+                        impact_claim=claim.impact_claim,
+                        evidence_exact_text=claim.evidence_exact_text,
+                        evidence_start_line=claim.evidence_start_line,
+                        evidence_end_line=claim.evidence_end_line,
+                        verifier_reason=verification.reason,
+                    )
+                )
+
+        if result.verified_claims:
+            result.status = CandidateFinalStatus.VERIFIED_REVIEW
+        elif result.blocked_count:
+            result.status = CandidateFinalStatus.BLOCKED
+        elif claims_by_source[candidate.source_id] and all(
+            verdict is VerifierVerdict.REJECTED
+            for verdict in result.verifier_verdicts
+        ):
+            result.status = CandidateFinalStatus.NO_SUPPORTED_CLAIM
         else:
-            final_reviews.append(
-                FinalReview(
-                    source_id=proposal.source_id,
-                    status=FinalStatus.REJECTED_UNSUPPORTED,
-                    short_reason=proposal.short_reason,
-                    verifier_reason=(
-                        "Verifier returned duplicate verdicts"
-                        if verification_counts[proposal.source_id] > 1
-                        else verdict.reason
-                        if verdict
-                        else "Verifier returned no verdict"
-                    ),
-                    blocked_stage="independent_verifier",
-                )
-            )
+            result.status = CandidateFinalStatus.BLOCKED
+            result.blocked_count += 1
+            result.blocked_stages.append("no_valid_review_claim")
 
-    final_reviews.sort(
-        key=lambda item: (
-            next(
-                (
-                    candidate.rank
-                    for candidate in candidates
-                    if candidate.source_id == item.source_id
-                ),
-                top_k + 1,
-            ),
-            item.source_id,
+    candidate_results = [
+        validation.candidate_results[candidate.source_id] for candidate in candidates
+    ]
+    has_verified = any(
+        result.status is CandidateFinalStatus.VERIFIED_REVIEW
+        for result in candidate_results
+    )
+    has_inconclusive = (
+        validation.global_blocked
+        or any(trace.error for trace in role_traces)
+        or any(
+            result.status
+            in {CandidateFinalStatus.BLOCKED, CandidateFinalStatus.INSUFFICIENT_EVIDENCE}
+            for result in candidate_results
         )
     )
-    for item in final_reviews:
-        if item.status is FinalStatus.VERIFIED_REVIEW:
-            verifier_verdict = VerifierVerdict.SUPPORTED
-        elif item.blocked_stage == "independent_verifier":
-            verifier_verdict = (
-                VerifierVerdict.MISSING
-                if item.verifier_reason == "Verifier returned no verdict"
-                else VerifierVerdict.REJECTED
-            )
-        else:
-            verifier_verdict = VerifierVerdict.NOT_APPLICABLE
+    if has_verified:
+        overall_status = OverallReviewStatus.REVIEW_REQUIRED
+    elif has_inconclusive:
+        overall_status = OverallReviewStatus.INCONCLUSIVE
+    else:
+        overall_status = OverallReviewStatus.NO_SUPPORTED_REVIEW
+    partial = has_verified and has_inconclusive
+
+    for result in candidate_results:
         log_event(
             "decision_recorded",
             run_id=run_id,
             case_id=case.id,
             role="evidence_verifier",
             model=provider.model_name,
-            source_id=item.source_id,
-            decision=item.status,
-            verifier_verdict=verifier_verdict,
-            blocked_stage=item.blocked_stage,
+            source_id=result.source_id,
+            decision=result.status,
+            verifier_verdict=(
+                VerifierVerdict.SUPPORTED
+                if result.verified_claims
+                else result.verifier_verdicts[0]
+                if result.verifier_verdicts
+                else None
+            ),
+            blocked_stage=result.blocked_stages[0] if result.blocked_stages else None,
         )
+        for verified_claim in result.verified_claims:
+            log_event(
+                "verified_claim_recorded",
+                run_id=run_id,
+                case_id=case.id,
+                source_id=result.source_id,
+                claim_id=verified_claim.claim_id,
+                verifier_verdict=VerifierVerdict.SUPPORTED,
+            )
+
     candidate_ids = [candidate.source_id for candidate in candidates]
     retrieval_hit = all(
         target in candidate_ids for target in case.expected_review_targets
     )
-    fingerprint = candidate_fingerprint(candidates)
-    if candidate_ids != [candidate.source_id for candidate in proposed_candidates]:
-        raise RuntimeError("Proposed candidate order changed")
-    completed_at = _now()
+    legacy_final: list[FinalReview] = []
+    for result in candidate_results:
+        if result.status is CandidateFinalStatus.VERIFIED_REVIEW:
+            first = result.verified_claims[0]
+            legacy_final.append(
+                FinalReview(
+                    source_id=result.source_id,
+                    status=FinalStatus.VERIFIED_REVIEW,
+                    evidence=first.evidence_exact_text,
+                    short_reason=first.impact_claim,
+                    verifier_reason=first.verifier_reason,
+                )
+            )
+        elif result.status is CandidateFinalStatus.NO_REVIEW:
+            legacy_final.append(
+                FinalReview(
+                    source_id=result.source_id,
+                    status=FinalStatus.NO_REVIEW,
+                    short_reason="No review need proposed for this Final Docket candidate.",
+                )
+            )
+        elif result.status is CandidateFinalStatus.INSUFFICIENT_EVIDENCE:
+            legacy_final.append(
+                FinalReview(
+                    source_id=result.source_id,
+                    status=FinalStatus.INSUFFICIENT_EVIDENCE,
+                    short_reason="Reviewer reported insufficient evidence.",
+                )
+            )
+        else:
+            legacy_final.append(
+                FinalReview(
+                    source_id=result.source_id,
+                    status=FinalStatus.REJECTED_UNSUPPORTED,
+                    short_reason="No unsupported claim or evidence is exposed.",
+                    blocked_stage=(
+                        result.blocked_stages[0]
+                        if result.blocked_stages
+                        else "independent_verifier_rejected"
+                    ),
+                )
+            )
+
     return PipelineResult(
         run_id=run_id,
         case_id=case.id,
@@ -334,27 +330,46 @@ async def run_case(
         model=provider.model_name,
         embedding_model=retriever.embedder.model_name,
         started_at=started_at,
-        completed_at=completed_at,
-        structured_change=structured_change,
+        completed_at=_now(),
         candidates=candidates,
-        candidate_fingerprint=fingerprint,
+        candidate_fingerprint=retrieval.summary.final_docket_fingerprint,
         embedding_index_fingerprint=retriever.embedding_index_fingerprint,
-        baseline_candidate_source_ids=candidate_ids,
-        proposed_candidate_source_ids=candidate_ids,
-        proposed_reviews=review_batch.reviews,
-        final_reviews=final_reviews,
+        identifier_index_fingerprint=retriever.identifier_index_fingerprint,
+        query_processing=retrieval.query_processing,
+        retrieval=retrieval.summary,
+        candidate_decisions=decision_batch.decisions,
+        claim_verifications=effective_verifications,
+        candidate_results=candidate_results,
         role_traces=role_traces,
         expected_review_targets=case.expected_review_targets,
+        expected_claims=case.expected_claims,
+        broad_candidate_source_ids=[
+            candidate.source_id for candidate in retrieval.broad_candidates
+        ],
+        expanded_candidate_source_ids=[
+            candidate.source_id for candidate in retrieval.expanded_candidates
+        ],
         retrieval_hit=retrieval_hit,
+        incoming_artifact=case.incoming_artifact,
+        overall_status=overall_status,
+        partial=partial,
+        baseline_candidate_source_ids=candidate_ids,
+        proposed_candidate_source_ids=candidate_ids,
+        final_reviews=legacy_final,
     )
 
 
 def seal_payload(result: PipelineResult) -> str:
     payload = {
         "case_id": result.case_id,
-        "candidate_fingerprint": result.candidate_fingerprint,
-        "baseline": result.baseline_candidate_source_ids,
-        "proposed": result.proposed_candidate_source_ids,
+        "final_docket_fingerprint": result.candidate_fingerprint,
+        "identifier_index_fingerprint": result.identifier_index_fingerprint,
+        "candidate_results": [
+            item.model_dump(mode="json") for item in result.candidate_results
+        ],
+        "overall_status": result.overall_status,
+        "partial": result.partial,
     }
-    value = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()

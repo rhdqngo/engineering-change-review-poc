@@ -1,0 +1,104 @@
+{
+  "experiment_id": "ecr-poc-regression-v6",
+  "supersedes_experiment_id": "ecr-poc-preregistered-v5",
+  "purpose": "purpose-driven atomic change-impact review against the immutable NASA cFS v7.0.1 bundle",
+  "baseline_id": "nasa-cfs-bundle-v7.0.1",
+  "freeze_tag": "ecr-poc-v6-freeze",
+  "results_observed_before_freeze": true,
+  "freeze_status": "frozen",
+  "gcs_freeze": {
+    "bucket": "ecr-poc-912838451352-asia-northeast3",
+    "prefix": "frozen/ecr-poc-v6",
+    "objects": {
+      "data/embeddings/ecr-poc-v6-vectors.f32": {
+        "generation": 1787232985962325,
+        "sha256": "e480ff4846aceb79bfa40c71c446ce35555bf9b89ec6ab95e144087a74fbbb8f"
+      },
+      "data/embeddings/ecr-poc-v6.json": {
+        "generation": 1787232986214313,
+        "sha256": "0abacaefc3637f4ca33842df3f91940e0f03f8bfbc66f9c9b692e2bc350f82a0"
+      },
+      "data/nasa/cfs-v7.0.1-artifacts.jsonl.gz": {
+        "generation": 1787232986453632,
+        "sha256": "f6f1772c5cdf7463d8e9d2e4dd104d6dcced64714e83386683def017ad597376"
+      },
+      "data/nasa/cfs-v7.0.1-raw-sources.tar.gz": {
+        "generation": 1787232986642586,
+        "sha256": "c7ee901eedf120b5f90a60ca63a4a58fd4082573776e6f85e1c00158cfddfa73"
+      },
+      "data/relations/ecr-poc-v6-identifiers.json.gz": {
+        "generation": 1787232986822836,
+        "sha256": "711d8e1f48de2d356ca977b13fa5240926a44f802bb4a7371ff88552496a0dd5"
+      }
+    }
+  },
+  "case_file": "data/cases/cases-v6.json",
+  "artifact_package_file": "data/nasa/cfs-v7.0.1-artifacts.jsonl.gz",
+  "provenance_file": "data/nasa/cfs-v7.0.1-provenance.json",
+  "raw_source_archive_file": "data/nasa/cfs-v7.0.1-raw-sources.tar.gz",
+  "top_k": 10,
+  "broad_k": 40,
+  "expanded_pool_max": 200,
+  "case_counts": {
+    "direct": 5,
+    "semantic": 5,
+    "cross_artifact": 5,
+    "clean": 2,
+    "benign": 3
+  },
+  "retrieval": {
+    "lexical": "BM25(k1=1.5,b=0.75)",
+    "fusion": {
+      "bm25": 0.5,
+      "embedding": 0.5,
+      "normalization": "min-max"
+    },
+    "query_version": "incoming-query-v2-deterministic",
+    "identifier_expansion": {
+      "schema": "engineering-identifier-index-v1",
+      "minimum_document_frequency": 2,
+      "maximum_document_frequency": 50,
+      "maximum_identifiers_per_broad_candidate": 8,
+      "hops": 1
+    },
+    "final_ranking": {
+      "hybrid": 0.75,
+      "identifier_relation": 0.25,
+      "tie_break": ["final_score_desc", "hybrid_score_desc", "source_id_asc"]
+    },
+    "embedding_model": "gemini-embedding-001",
+    "embedding_output_dimensionality": 768,
+    "embedding_status": "approved Vertex RETRIEVAL_DOCUMENT index generated and locally validated; immutable GCS generations pending"
+  },
+  "embedding_index_file": "data/embeddings/ecr-poc-v6.json",
+  "identifier_index_file": "data/relations/ecr-poc-v6-identifiers.json.gz",
+  "requirements": {
+    "architecture": "purpose-driven-v6",
+    "design_tag": "ecr-poc-v6-design-freeze",
+    "design_commit": "ed4dd2a6da058675a62b8540451db9c18612ffa8",
+    "document": "docs/plans/LLM 기반 우주 Engineering Change Review.md",
+    "sha256": "8ecaef7ba62a5408ed36b45e3f1c8a72f8d0236ddd1e6d2d7b6beea08cf96216"
+  },
+  "generation": {
+    "model": "gemini-3.5-flash",
+    "temperature": 0,
+    "role_timeout_seconds": 120
+  },
+  "files": {
+    "data/cases/cases-v6.json": "870ceb0b26cd9aaabe50a3da91b8733f015c721202be9fb755c2f333f820e655",
+    "data/nasa/cfs-v7.0.1-artifacts.jsonl.gz": "f6f1772c5cdf7463d8e9d2e4dd104d6dcced64714e83386683def017ad597376",
+    "data/nasa/cfs-v7.0.1-provenance.json": "e91209ba153a4e2c13220963f79c14310abc271c545e05c4c98e099b502e849f",
+    "data/nasa/cfs-v7.0.1-raw-sources.tar.gz": "c7ee901eedf120b5f90a60ca63a4a58fd4082573776e6f85e1c00158cfddfa73",
+    "data/prompts/ecr-poc-v6.json": "5d61ec0d57efd84463e533d39cf5cfc095f90b176522427a5d170f356d902c65",
+    "data/embeddings/ecr-poc-v6.json": "0abacaefc3637f4ca33842df3f91940e0f03f8bfbc66f9c9b692e2bc350f82a0",
+    "data/embeddings/ecr-poc-v6-vectors.f32": "e480ff4846aceb79bfa40c71c446ce35555bf9b89ec6ab95e144087a74fbbb8f",
+    "data/relations/ecr-poc-v6-identifiers.json.gz": "711d8e1f48de2d356ca977b13fa5240926a44f802bb4a7371ff88552496a0dd5",
+    "docs/plans/LLM 기반 우주 Engineering Change Review.md": "8ecaef7ba62a5408ed36b45e3f1c8a72f8d0236ddd1e6d2d7b6beea08cf96216"
+  },
+  "prompt_file": "data/prompts/ecr-poc-v6.json",
+  "prompt_version": "ecr-poc-prompts-v6-purpose-driven",
+  "prompt_hashes": {
+    "engineering_review": "1b3b53c433422e42ec054d2209478631ac06c0e9da97f3b1d45e2481aff235ac",
+    "evidence_verifier": "b2ba491c61f7884b81acbd5b2edc6897b8d61b9827a29de18515247befd20957"
+  }
+}

@@ -1,7 +1,7 @@
 # UI Foundation
 
 state: provisional  
-version: 0.1  
+version: 0.2
 updated: 2026-08-20
 
 ## Direction
@@ -10,11 +10,10 @@ Use a restrained engineering docket: dark mission header, warm paper surface, th
 
 ## Information architecture
 
-1. Environment/result provenance.
-2. Frozen case identity and change statement.
-3. Candidate seal and arm summary.
-4. Fixed six-row candidate docket.
-5. Selected evidence and fail-closed checks.
+1. `/` begins with one Incoming Artifact form and one billable review action.
+2. Live disposition precedes deterministic Baseline/Broad/Expanded/Final scope and the Final Top-10 docket.
+3. Candidate selection opens supported atomic claim evidence or fail-closed count/stage state; unsupported claim wording stays hidden.
+4. `/evaluation` separately presents the 20-case frozen regression benchmark, metrics, and provenance.
 
 ## Roles
 
@@ -29,4 +28,4 @@ At widths below 760 px, header and summary collapse vertically. The candidate do
 
 ## Governance
 
-This Foundation is provisional and applies only to the PoC Demo UI. It is not approved reusable precedent.
+This Foundation is provisional and applies only to the Live Review and Evaluation PoC surfaces. It is not approved reusable precedent.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from collections.abc import Sequence
 from typing import Protocol, TypeVar
@@ -9,22 +10,20 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from pydantic import BaseModel
 
-from .adk_agent.agent import (
-    MODEL,
-    make_change_analyst,
-    make_engineering_reviewer,
-    make_evidence_verifier,
-)
+from .adk_agent.agent import MODEL, make_engineering_reviewer, make_evidence_verifier
 from .models import (
-    ArtifactSpan,
+    CandidateDecision,
+    CandidateDecisionBatch,
     CaseDefinition,
+    ClaimVerification,
+    ClaimVerificationBatch,
     Decision,
-    ReviewBatch,
-    ReviewItem,
+    ImpactType,
+    RetrievedCandidate,
+    ReviewerClaimDraft,
     RoleTrace,
-    StructuredChange,
-    VerificationBatch,
-    VerificationItem,
+    ValidatedClaim,
+    VerifierVerdict,
 )
 from .prompts import PromptBundle
 
@@ -35,24 +34,18 @@ class ReviewProvider(Protocol):
     name: str
     model_name: str
 
-    async def analyze(
-        self, case: CaseDefinition
-    ) -> tuple[StructuredChange, RoleTrace]: ...
-
     async def review(
         self,
         case: CaseDefinition,
-        change: StructuredChange,
-        candidates: Sequence[ArtifactSpan],
-    ) -> tuple[ReviewBatch, RoleTrace]: ...
+        candidates: Sequence[RetrievedCandidate],
+        final_docket_fingerprint: str,
+    ) -> tuple[CandidateDecisionBatch, RoleTrace]: ...
 
     async def verify(
         self,
         case: CaseDefinition,
-        change: StructuredChange,
-        proposals: Sequence[ReviewItem],
-        candidates: Sequence[ArtifactSpan],
-    ) -> tuple[VerificationBatch, RoleTrace]: ...
+        claims: Sequence[ValidatedClaim],
+    ) -> tuple[ClaimVerificationBatch, RoleTrace]: ...
 
 
 class AdkVertexProvider:
@@ -90,172 +83,187 @@ class AdkVertexProvider:
         raw = json.dumps(value, ensure_ascii=False)
         return schema.model_validate(value), raw
 
-    async def analyze(self, case: CaseDefinition) -> tuple[StructuredChange, RoleTrace]:
-        prompt = json.dumps({"change_text": case.change_text}, ensure_ascii=False)
-        parsed, raw = await self._run(
-            make_change_analyst(self.prompt_bundle), prompt, StructuredChange
-        )
-        return parsed, RoleTrace(
-            role="change_analyst",
-            provider=self.name,
-            model=self.model_name,
-            raw_output=raw,
-            parsed=parsed.model_dump(mode="json"),
-        )
-
     async def review(
         self,
         case: CaseDefinition,
-        change: StructuredChange,
-        candidates: Sequence[ArtifactSpan],
-    ) -> tuple[ReviewBatch, RoleTrace]:
+        candidates: Sequence[RetrievedCandidate],
+        final_docket_fingerprint: str,
+    ) -> tuple[CandidateDecisionBatch, RoleTrace]:
+        if case.incoming_artifact is None:
+            raise ValueError("Purpose-driven review requires an Incoming Artifact")
         payload = {
-            "change": change.model_dump(mode="json"),
-            "fixed_candidates": [candidate.model_dump(mode="json") for candidate in candidates],
+            "incoming_artifact": case.incoming_artifact.model_dump(mode="json"),
+            "final_docket_fingerprint": final_docket_fingerprint,
+            "final_docket": [candidate.model_dump(mode="json") for candidate in candidates],
         }
-        parsed, raw = await self._run(
+        parsed, _ = await self._run(
             make_engineering_reviewer(self.prompt_bundle),
             json.dumps(payload, ensure_ascii=False),
-            ReviewBatch,
+            CandidateDecisionBatch,
         )
         return parsed, RoleTrace(
             role="engineering_review",
             provider=self.name,
             model=self.model_name,
-            raw_output=raw,
             parsed=parsed.model_dump(mode="json"),
         )
 
     async def verify(
         self,
         case: CaseDefinition,
-        change: StructuredChange,
-        proposals: Sequence[ReviewItem],
-        candidates: Sequence[ArtifactSpan],
-    ) -> tuple[VerificationBatch, RoleTrace]:
-        by_id = {candidate.source_id: candidate for candidate in candidates}
+        claims: Sequence[ValidatedClaim],
+    ) -> tuple[ClaimVerificationBatch, RoleTrace]:
+        if case.incoming_artifact is None:
+            raise ValueError("Purpose-driven verification requires an Incoming Artifact")
         payload = {
-            "change": change.model_dump(mode="json"),
-            "proposals": [
+            "incoming_artifact": case.incoming_artifact.model_dump(mode="json"),
+            "claims": [
                 {
-                    "proposal": proposal.model_dump(mode="json"),
-                    "candidate": by_id[proposal.source_id].model_dump(mode="json"),
+                    "claim_id": claim.claim_id,
+                    "source_id": claim.source_id,
+                    "impact_type": claim.impact_type.value,
+                    "impact_claim": claim.impact_claim,
+                    "evidence_exact_text": claim.evidence_exact_text,
+                    "evidence_start_line": claim.evidence_start_line,
+                    "evidence_end_line": claim.evidence_end_line,
                 }
-                for proposal in proposals
+                for claim in claims
             ],
         }
-        parsed, raw = await self._run(
+        parsed, _ = await self._run(
             make_evidence_verifier(self.prompt_bundle),
             json.dumps(payload, ensure_ascii=False),
-            VerificationBatch,
+            ClaimVerificationBatch,
         )
         return parsed, RoleTrace(
             role="evidence_verifier",
             provider=self.name,
             model=self.model_name,
-            raw_output=raw,
             parsed=parsed.model_dump(mode="json"),
         )
 
 
+def _first_exact_line(candidate: RetrievedCandidate) -> tuple[str, int]:
+    for offset, line in enumerate(candidate.content.splitlines()):
+        if line.strip():
+            return line.strip(), candidate.start_line + offset
+    return candidate.content, candidate.start_line
+
+
 class FixtureProvider:
-    """Deterministic UI/test fixture. It is never valid evidence for the experiment."""
+    """Deterministic UI/test fixture. It is never experiment evidence."""
 
     name = "fixture-not-llm"
     model_name = "none"
 
-    def __init__(self, inject_unsupported: bool = False) -> None:
+    def __init__(
+        self,
+        inject_unsupported: bool = False,
+        live_outcome: str | None = None,
+    ) -> None:
         self.inject_unsupported = inject_unsupported
-
-    async def analyze(self, case: CaseDefinition) -> tuple[StructuredChange, RoleTrace]:
-        raw = case.change.model_dump_json()
-        return case.change, RoleTrace(
-            role="change_analyst",
-            provider=self.name,
-            model=self.model_name,
-            raw_output=raw,
-            parsed=case.change.model_dump(mode="json"),
+        self.live_outcome = live_outcome or os.environ.get(
+            "ECR_LIVE_FIXTURE_OUTCOME", "no_review"
         )
+        if self.live_outcome not in {"no_review", "review", "inconclusive", "rejected"}:
+            raise ValueError("Unknown live fixture outcome")
 
     async def review(
         self,
         case: CaseDefinition,
-        change: StructuredChange,
-        candidates: Sequence[ArtifactSpan],
-    ) -> tuple[ReviewBatch, RoleTrace]:
-        reviews: list[ReviewItem] = []
-        for candidate in candidates:
-            if candidate.source_id in case.expected_review_targets:
-                evidence = next(
-                    (line.strip() for line in candidate.content.splitlines() if line.strip()),
-                    candidate.content,
+        candidates: Sequence[RetrievedCandidate],
+        final_docket_fingerprint: str,
+    ) -> tuple[CandidateDecisionBatch, RoleTrace]:
+        del final_docket_fingerprint
+        decisions: list[CandidateDecision] = []
+        unsupported_injected = False
+        for index, candidate in enumerate(candidates):
+            is_live_review = (
+                case.type == "live"
+                and self.live_outcome in {"review", "rejected"}
+                and index == 0
+            )
+            if case.type == "live" and self.live_outcome == "inconclusive" and index == 0:
+                decisions.append(
+                    CandidateDecision(
+                        source_id=candidate.source_id,
+                        decision=Decision.INSUFFICIENT_EVIDENCE,
+                    )
                 )
-                expected_evidence = case.evidence_for(candidate.source_id)
-                if expected_evidence:
-                    evidence = expected_evidence
-                reviews.append(
-                    ReviewItem(
+                continue
+            inject_invalid_claim = (
+                self.inject_unsupported
+                and case.id == "DIR-01"
+                and not unsupported_injected
+                and candidate.source_id not in case.expected_review_targets
+            )
+            if is_live_review or inject_invalid_claim or candidate.source_id in case.expected_review_targets:
+                evidence, line = _first_exact_line(candidate)
+                expected = case.evidence_for(candidate.source_id)
+                if expected:
+                    evidence = expected
+                    offset = candidate.content[: candidate.content.index(expected)].count("\n")
+                    line = candidate.start_line + offset
+                if inject_invalid_claim:
+                    evidence = "THIS SPAN DOES NOT EXIST IN THE NASA SOURCE"
+                    unsupported_injected = True
+                decisions.append(
+                    CandidateDecision(
                         source_id=candidate.source_id,
                         decision=Decision.REVIEW,
-                        evidence=evidence,
-                        short_reason="Fixture review for UI and deterministic tests only.",
+                        claims=[
+                            ReviewerClaimDraft(
+                                impact_type=case.impact_type_for(candidate.source_id)
+                                if not is_live_review
+                                else ImpactType.IMPLEMENTATION_IMPACT,
+                                impact_claim=(
+                                    "Fixture atomic impact claim for deterministic UI validation."
+                                ),
+                                evidence_exact_text=evidence,
+                                evidence_start_line=line,
+                                evidence_end_line=line + evidence.count("\n"),
+                            )
+                        ],
                     )
                 )
             else:
-                reviews.append(
-                    ReviewItem(
+                decisions.append(
+                    CandidateDecision(
                         source_id=candidate.source_id,
                         decision=Decision.NO_REVIEW,
-                        short_reason="Fixture no-review decision.",
                     )
                 )
-        if self.inject_unsupported and case.id == "DIR-01" and candidates:
-            unsupported_index = next(
-                (
-                    index
-                    for index, candidate in enumerate(candidates)
-                    if candidate.source_id not in case.expected_review_targets
-                ),
-                0,
-            )
-            reviews[unsupported_index] = ReviewItem(
-                source_id=candidates[unsupported_index].source_id,
-                decision=Decision.REVIEW,
-                evidence="THIS SPAN DOES NOT EXIST IN THE NASA SOURCE",
-                short_reason="Intentional unsupported fixture used to exercise fail-closed behavior.",
-            )
-        batch = ReviewBatch(reviews=reviews)
-        raw = batch.model_dump_json()
+        batch = CandidateDecisionBatch(decisions=decisions)
         return batch, RoleTrace(
             role="engineering_review",
             provider=self.name,
             model=self.model_name,
-            raw_output=raw,
             parsed=batch.model_dump(mode="json"),
         )
 
     async def verify(
         self,
         case: CaseDefinition,
-        change: StructuredChange,
-        proposals: Sequence[ReviewItem],
-        candidates: Sequence[ArtifactSpan],
-    ) -> tuple[VerificationBatch, RoleTrace]:
-        batch = VerificationBatch(
+        claims: Sequence[ValidatedClaim],
+    ) -> tuple[ClaimVerificationBatch, RoleTrace]:
+        verdict = (
+            VerifierVerdict.REJECTED
+            if case.type == "live" and self.live_outcome == "rejected"
+            else VerifierVerdict.SUPPORTED
+        )
+        batch = ClaimVerificationBatch(
             verifications=[
-                VerificationItem(
-                    source_id=proposal.source_id,
-                    supported=True,
-                    reason="Fixture verifier support for UI and deterministic tests only.",
+                ClaimVerification(
+                    claim_id=claim.claim_id,
+                    verdict=verdict,
+                    reason="Fixture verdict for deterministic tests and UI states only.",
                 )
-                for proposal in proposals
+                for claim in claims
             ]
         )
-        raw = batch.model_dump_json()
         return batch, RoleTrace(
             role="evidence_verifier",
             provider=self.name,
             model=self.model_name,
-            raw_output=raw,
             parsed=batch.model_dump(mode="json"),
         )

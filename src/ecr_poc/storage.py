@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .data import (
+    ACTIVE_EXPERIMENT_ID,
+    active_data_root,
     experiment_manifest_name,
     load_experiment_manifest,
     repository_root,
@@ -17,7 +19,13 @@ from .data import (
     validate_experiment_manifest,
 )
 from .metrics import calculate_metrics
-from .models import EvaluationRun, FinalStatus, PublishedPointer
+from .models import (
+    CandidateFinalStatus,
+    EvaluationRun,
+    FinalStatus,
+    PublishedPointer,
+    VerifierVerdict,
+)
 from .observability import log_event
 from .retrieval import candidate_fingerprint
 
@@ -156,17 +164,54 @@ def _frozen_paths(root: Path) -> Iterable[Path]:
         "data/nasa",
         "data/experiments",
         "data/prompts",
+        "data/relations",
     ]:
         base = root / relative
         yield from (path for path in base.rglob("*") if path.is_file())
+    requirements = root / "docs" / "plans" / "LLM 기반 우주 Engineering Change Review.md"
+    if requirements.is_file():
+        yield requirements
 
 
-def upload_frozen_tree(root: Path, bucket_name: str, prefix: str) -> dict[str, int]:
+def v6_freeze_payload_relatives(
+    root: Path, manifest_name: str = "ecr-poc-v6.json"
+) -> tuple[str, ...]:
+    manifest = load_experiment_manifest(root, manifest_name)
+    index_file = str(manifest["embedding_index_file"])
+    index = json.loads((root / index_file).read_text(encoding="utf-8"))
+    return tuple(
+        sorted(
+            {
+                str(manifest["artifact_package_file"]),
+                str(manifest["raw_source_archive_file"]),
+                index_file,
+                str(index["vector_file"]),
+                str(manifest["identifier_index_file"]),
+            }
+        )
+    )
+
+
+def upload_frozen_tree(
+    root: Path,
+    bucket_name: str,
+    prefix: str,
+    *,
+    only_relatives: Iterable[str] | None = None,
+) -> dict[str, Any]:
     client = _storage_client()
     bucket = client.bucket(bucket_name)
     uploaded = 0
     existing = 0
-    for path in _frozen_paths(root):
+    objects: dict[str, dict[str, int | str]] = {}
+    if only_relatives is None:
+        paths = sorted(_frozen_paths(root))
+    else:
+        paths = [root / relative for relative in sorted(set(only_relatives))]
+        missing = [path for path in paths if not path.is_file()]
+        if missing:
+            raise RuntimeError(f"Frozen upload input is missing: {missing[0]}")
+    for path in paths:
         relative = path.relative_to(root).as_posix()
         name = f"{prefix.strip('/')}/{relative}"
         content = path.read_bytes()
@@ -181,7 +226,16 @@ def upload_frozen_tree(root: Path, bucket_name: str, prefix: str) -> dict[str, i
             if hashlib.sha256(remote).digest() != hashlib.sha256(content).digest():
                 raise RuntimeError(f"Frozen GCS object differs: gs://{bucket_name}/{name}") from error
             existing += 1
-    return {"uploaded": uploaded, "verified_existing": existing}
+        blob.reload()
+        objects[relative] = {
+            "generation": int(blob.generation),
+            "sha256": hashlib.sha256(content).hexdigest(),
+        }
+    return {
+        "uploaded": uploaded,
+        "verified_existing": existing,
+        "objects": objects,
+    }
 
 
 def upload_historical_result(root: Path, bucket_name: str) -> StoredObject:
@@ -267,7 +321,11 @@ def _validate_cloud_provenance(
     run: EvaluationRun,
     expected_experiment_manifest: str | None = None,
 ) -> str:
-    root = repository_root()
+    root = (
+        active_data_root()
+        if run.experiment_id == ACTIVE_EXPERIMENT_ID
+        else repository_root()
+    )
     provenance = run.provenance
     if provenance is None:
         raise RuntimeError("Published versioned run has no provenance")
@@ -310,7 +368,9 @@ def _validate_cloud_provenance(
         raise RuntimeError("Published generation model mismatch")
     if run.embedding_model != manifest["retrieval"]["embedding_model"]:
         raise RuntimeError("Published embedding model mismatch")
-    if run.experiment_id.startswith("ecr-poc-preregistered-v5"):
+    if run.experiment_id.startswith(
+        ("ecr-poc-preregistered-v5", "ecr-poc-preregistered-v6")
+    ) or run.experiment_id == ACTIVE_EXPERIMENT_ID:
         embedding_index_file = str(manifest["embedding_index_file"])
         if provenance.embedding_index_manifest != embedding_index_file:
             raise RuntimeError("Published embedding index manifest mismatch")
@@ -320,6 +380,16 @@ def _validate_cloud_provenance(
             raise RuntimeError("Published embedding index manifest hash mismatch")
         if not provenance.embedding_index_fingerprint:
             raise RuntimeError("Published run has no embedding vector fingerprint")
+    if run.experiment_id == ACTIVE_EXPERIMENT_ID:
+        identifier_index_file = str(manifest["identifier_index_file"])
+        if provenance.identifier_index_manifest != identifier_index_file:
+            raise RuntimeError("Published identifier index manifest mismatch")
+        if provenance.identifier_index_manifest_sha256 != sha256_file(
+            root / identifier_index_file
+        ):
+            raise RuntimeError("Published identifier index manifest hash mismatch")
+        if not provenance.identifier_index_fingerprint:
+            raise RuntimeError("Published run has no identifier index fingerprint")
     return manifest_name
 
 
@@ -330,7 +400,8 @@ def _validated_run(
     expected_experiment_manifest: str | None = None,
 ) -> EvaluationRun:
     run = EvaluationRun.model_validate_json(content)
-    is_versioned = (
+    is_current_v6 = run.experiment_id == ACTIVE_EXPERIMENT_ID
+    is_versioned = is_current_v6 or (
         run.experiment_id.startswith("ecr-poc-preregistered-v")
         and run.experiment_id != "ecr-poc-preregistered-v1"
     )
@@ -344,8 +415,11 @@ def _validated_run(
     )
     if run.metrics != recalculated:
         raise RuntimeError("Published evaluation metrics do not match raw cases")
-    if len(run.cases) != 18:
-        raise RuntimeError("Published evaluation is not a complete 18-case run")
+    expected_cases = 20 if is_current_v6 else 18
+    if len(run.cases) != expected_cases:
+        raise RuntimeError(
+            f"Published evaluation is not a complete {expected_cases}-case run"
+        )
     for case in run.cases:
         if is_versioned and case.run_id != run.run_id:
             raise RuntimeError(f"{case.case_id} does not use the evaluation run ID")
@@ -358,23 +432,91 @@ def _validated_run(
         candidate_ids = [candidate.source_id for candidate in case.candidates]
         if len(candidate_ids) != int(run.configuration["top_k"]):
             raise RuntimeError(f"{case.case_id} does not contain the fixed Top-K")
-        if (
+        if not is_current_v6 and (
             case.baseline_candidate_source_ids != candidate_ids
             or case.proposed_candidate_source_ids != candidate_ids
         ):
             raise RuntimeError(f"{case.case_id} Baseline/Proposed arms differ")
         if case.candidate_fingerprint != candidate_fingerprint(case.candidates):
             raise RuntimeError(f"{case.case_id} candidate fingerprint mismatch")
-        if run.experiment_id.startswith("ecr-poc-preregistered-v5") and (
-            not case.embedding_index_fingerprint
-            or case.embedding_index_fingerprint
-            != run.configuration.get("embedding_index_fingerprint")
-            or run.provenance is None
-            or case.embedding_index_fingerprint
-            != run.provenance.embedding_index_fingerprint
+        candidate_by_id = {
+            candidate.source_id: candidate for candidate in case.candidates
+        }
+        if (
+            run.experiment_id.startswith(
+                ("ecr-poc-preregistered-v5", "ecr-poc-preregistered-v6")
+            )
+            or is_current_v6
+        ) and (
+                not case.embedding_index_fingerprint
+                or case.embedding_index_fingerprint
+                != run.configuration.get("embedding_index_fingerprint")
+                or run.provenance is None
+                or case.embedding_index_fingerprint
+                != run.provenance.embedding_index_fingerprint
         ):
             raise RuntimeError(f"{case.case_id} embedding index fingerprint mismatch")
-        candidate_by_id = {candidate.source_id: candidate for candidate in case.candidates}
+        if is_current_v6:
+            if (
+                case.query_processing is None
+                or case.retrieval is None
+                or case.retrieval.final_docket_fingerprint != case.candidate_fingerprint
+                or case.retrieval.final_k != 10
+                or case.retrieval.broad_k != 40
+                or case.retrieval.expanded_count > 200
+            ):
+                raise RuntimeError(f"{case.case_id} retrieval seal mismatch")
+            if (
+                not case.identifier_index_fingerprint
+                or case.identifier_index_fingerprint
+                != run.configuration.get("identifier_index_fingerprint")
+                or run.provenance is None
+                or case.identifier_index_fingerprint
+                != run.provenance.identifier_index_fingerprint
+            ):
+                raise RuntimeError(f"{case.case_id} identifier index fingerprint mismatch")
+            result_counts = Counter(item.source_id for item in case.candidate_results)
+            if set(result_counts) != set(candidate_ids) or any(
+                count != 1 for count in result_counts.values()
+            ):
+                raise RuntimeError(f"{case.case_id} candidate result cardinality mismatch")
+            verification_counts = Counter(
+                item.claim_id for item in case.claim_verifications
+            )
+            for candidate_result in case.candidate_results:
+                candidate = candidate_by_id.get(candidate_result.source_id)
+                if candidate is None:
+                    raise RuntimeError(f"{case.case_id} candidate result is off docket")
+                if (
+                    candidate_result.status is CandidateFinalStatus.VERIFIED_REVIEW
+                    and not candidate_result.verified_claims
+                ):
+                    raise RuntimeError(f"{case.case_id} verified candidate has no claim")
+                if (
+                    candidate_result.status is not CandidateFinalStatus.VERIFIED_REVIEW
+                    and candidate_result.verified_claims
+                ):
+                    raise RuntimeError(f"{case.case_id} unsupported claim was exposed")
+                for claim in candidate_result.verified_claims:
+                    matching = [
+                        item
+                        for item in case.claim_verifications
+                        if item.claim_id == claim.claim_id
+                    ]
+                    if (
+                        claim.source_id != candidate.source_id
+                        or claim.evidence_exact_text not in candidate.content
+                        or claim.evidence_start_line < candidate.start_line
+                        or claim.evidence_end_line > candidate.end_line
+                        or verification_counts[claim.claim_id] != 1
+                        or matching[0].verdict is not VerifierVerdict.SUPPORTED
+                    ):
+                        raise RuntimeError(
+                            f"{case.case_id} exposes an unsupported verified claim"
+                        )
+            if any(trace.error for trace in case.role_traces):
+                raise RuntimeError(f"{case.case_id} contains a role error")
+            continue
         verifier_items: list[dict[str, Any]] = []
         for trace in case.role_traces:
             if trace.role != "evidence_verifier" or not isinstance(trace.parsed, dict):
@@ -426,6 +568,8 @@ def validate_historical_runs(root: Path | None = None) -> dict[str, str]:
         "v2": ("vertex-adk-v2.json", "ecr-poc-v2.json"),
         "v3": ("vertex-adk-v3.json", "ecr-poc-v3.json"),
         "v4": ("vertex-adk-v4.json", "ecr-poc-v4.json"),
+        "v5": ("vertex-adk-v5.json", "ecr-poc-v5.json"),
+        "v5-q1": ("vertex-adk-v5-q1.json", "ecr-poc-v5-q1.json"),
     }
     validated: dict[str, str] = {}
     for version_label, (file_name, manifest_name) in files.items():
@@ -445,8 +589,8 @@ def publish_run(
     source_commit: str,
     experiment_manifest: str,
     *,
-    run_prefix: str = "runs/v5",
-    published_object_name: str = "published/v5/demo.json",
+    run_prefix: str = "runs/v6",
+    published_object_name: str = "published/v6/demo.json",
 ) -> PublishedPointer:
     client = _storage_client()
     bucket = client.bucket(bucket_name)
@@ -510,7 +654,7 @@ def publish_run(
 
 def load_published_run(
     bucket_name: str,
-    published_object_name: str = "published/v5/demo.json",
+    published_object_name: str = "published/v6/demo.json",
 ) -> tuple[EvaluationRun, PublishedPointer]:
     client = _storage_client()
     bucket = client.bucket(bucket_name)

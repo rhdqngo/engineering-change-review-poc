@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import uuid
 from datetime import UTC, datetime
@@ -9,21 +10,23 @@ from typing import Any
 
 from .data import (
     DEFAULT_EXPERIMENT_MANIFEST,
+    active_data_root,
     load_artifacts,
     load_cases,
     load_experiment_manifest,
-    repository_root,
     sha256_file,
     validate_all,
     validate_experiment_manifest,
 )
+from .embedding_index import load_embedding_index
+from .identifier_index import load_identifier_index
 from .metrics import calculate_metrics
 from .models import EvaluationRun, RunProvenance
 from .observability import log_event
 from .pipeline import run_case
 from .prompts import PromptBundle, load_prompt_bundle
 from .providers import AdkVertexProvider, FixtureProvider, ReviewProvider
-from .retrieval import HybridRetriever, build_embedder
+from .retrieval import DeterministicHashEmbedder, HybridRetriever, build_embedder
 from .storage import LocalRunStore, RunStore
 
 _PROTECTED_HISTORICAL_RESULTS = {
@@ -31,6 +34,8 @@ _PROTECTED_HISTORICAL_RESULTS = {
     "results/runs/vertex-adk-v2.json",
     "results/runs/vertex-adk-v3.json",
     "results/runs/vertex-adk-v4.json",
+    "results/runs/vertex-adk-v5.json",
+    "results/runs/vertex-adk-v5-q1.json",
 }
 
 
@@ -95,7 +100,12 @@ async def evaluate(
     role_timeout_seconds: float | None = None,
     update_latest: bool = True,
 ) -> EvaluationRun:
-    root = root or repository_root()
+    if root is None:
+        root = (
+            active_data_root()
+            if experiment_manifest in {None, DEFAULT_EXPERIMENT_MANIFEST}
+            else Path(__file__).resolve().parents[2]
+        )
     run_id = run_id or str(uuid.uuid4())
     if run_store is None:
         if output_path is None:
@@ -107,27 +117,28 @@ async def evaluate(
         }
         if output_path.resolve() in protected_paths:
             raise RuntimeError(
-                "Refusing to overwrite an immutable v1-v4 historical result path"
+                "Refusing to overwrite an immutable v1-v5 historical result path"
             )
-    validate_all(root)
     selected_manifest = experiment_manifest or DEFAULT_EXPERIMENT_MANIFEST
+    if selected_manifest == DEFAULT_EXPERIMENT_MANIFEST:
+        validate_all(root)
+    else:
+        validate_experiment_manifest(root, selected_manifest)
     freeze_hashes = validate_experiment_manifest(root, selected_manifest)
     base_experiment_id, top_k, cases = load_cases(root, experiment_manifest)
     experiment_id = (
-        base_experiment_id if experiment_manifest else "ecr-poc-fixture-v5"
+        base_experiment_id if experiment_manifest else "ecr-poc-fixture-v6"
     )
     provenance: RunProvenance | None = None
-    manifest: dict[str, Any] | None = None
-    prompt_file = "data/prompts/ecr-poc-v2.json"
+    manifest = load_experiment_manifest(root, selected_manifest)
+    prompt_file = str(manifest["prompt_file"])
     if experiment_manifest:
         validate_experiment_manifest(root, experiment_manifest)
-        manifest = load_experiment_manifest(root, experiment_manifest)
         experiment_id = str(manifest["experiment_id"])
         if not source_commit:
             raise RuntimeError("Versioned evaluation requires a source commit")
-        prompt_file = str(manifest["prompt_file"])
     prompt_bundle = load_prompt_bundle(root, prompt_file)
-    if manifest is not None:
+    if experiment_manifest is not None:
         assert experiment_manifest is not None
         assert source_commit is not None
         prompt_hashes = {
@@ -148,17 +159,46 @@ async def evaluate(
             container_image_digest=container_image_digest,
             adk_version=version("google-adk"),
         )
-    artifacts = load_artifacts(root)
+    artifacts = load_artifacts(root, selected_manifest)
     embedder = build_embedder(embedding_provider)
-    query_version = (
-        str(manifest["retrieval"].get("query_version", "structured-change-v1"))
-        if manifest
-        else "structured-change-v1"
+    query_version = str(
+        manifest["retrieval"].get("query_version", "historical-query-adapter")
     )
-    retriever = HybridRetriever(artifacts, embedder, query_version=query_version)
+    frozen_index = None
+    if isinstance(manifest.get("embedding_index_file"), str):
+        metadata_relative = str(manifest["embedding_index_file"])
+        index_document = json.loads(
+            (root / metadata_relative).read_text(encoding="utf-8")
+        )
+        if int(index_document.get("schema_version", 1)) >= 2:
+            frozen_index = load_embedding_index(root, metadata_relative, artifacts)
+            if frozen_index.model_name != embedder.model_name:
+                if provider_name == "fixture" and embedding_provider == "local":
+                    embedder = DeterministicHashEmbedder(frozen_index.dimensions)
+                else:
+                    raise RuntimeError(
+                        "Frozen document index model does not match the query embedding model"
+                    )
+    identifier_index = None
+    if isinstance(manifest.get("identifier_index_file"), str):
+        identifier_file = str(manifest["identifier_index_file"])
+        identifier_index = load_identifier_index(
+            root / identifier_file,
+            artifacts,
+            expected_artifact_package_sha256=str(
+                manifest["files"][str(manifest["artifact_package_file"])]
+            ),
+            expected_sha256=str(manifest["files"][identifier_file]),
+        )
+    retriever = HybridRetriever(
+        artifacts,
+        embedder,
+        document_embeddings=frozen_index.vectors if frozen_index else None,
+        embedding_index_fingerprint=(frozen_index.fingerprint if frozen_index else None),
+        identifier_index=identifier_index,
+    )
     if (
         provenance is not None
-        and manifest is not None
         and isinstance(manifest.get("embedding_index_file"), str)
     ):
         embedding_index_manifest = str(manifest["embedding_index_file"])
@@ -167,6 +207,15 @@ async def evaluate(
             root / embedding_index_manifest
         )
         provenance.embedding_index_fingerprint = retriever.embedding_index_fingerprint
+        if isinstance(manifest.get("identifier_index_file"), str):
+            identifier_index_manifest = str(manifest["identifier_index_file"])
+            provenance.identifier_index_manifest = identifier_index_manifest
+            provenance.identifier_index_manifest_sha256 = sha256_file(
+                root / identifier_index_manifest
+            )
+            provenance.identifier_index_fingerprint = (
+                retriever.identifier_index_fingerprint
+            )
     provider = build_provider(
         provider_name,
         inject_unsupported=inject_unsupported,
@@ -187,7 +236,7 @@ async def evaluate(
         timeout = float(
             os.environ.get(
                 "ECR_ROLE_TIMEOUT_SECONDS",
-                str(manifest["generation"]["role_timeout_seconds"] if manifest else 120),
+                str(manifest["generation"]["role_timeout_seconds"]),
             )
         )
     log_event(
@@ -275,10 +324,10 @@ async def evaluate(
             completed_cases=len(case_results),
         )
         verified = sum(
-            item.status.value == "VERIFIED_REVIEW" for item in result.final_reviews
+            item.status.value == "VERIFIED_REVIEW" for item in result.candidate_results
         )
         blocked = sum(
-            item.status.value == "REJECTED_UNSUPPORTED" for item in result.final_reviews
+            item.status.value == "BLOCKED" for item in result.candidate_results
         )
         log_event(
             "case_completed",
@@ -300,14 +349,17 @@ async def evaluate(
         freeze_hashes=freeze_hashes,
         configuration={
             "top_k": top_k,
+            "broad_k": 40,
+            "expanded_pool_max": 200,
             "lexical": "BM25(k1=1.5,b=0.75)",
             "fusion": {"bm25": 0.5, "embedding": 0.5, "normalization": "min-max"},
             "query_version": query_version,
             "embedding_index_fingerprint": retriever.embedding_index_fingerprint,
+            "identifier_index_fingerprint": retriever.identifier_index_fingerprint,
             "temperature": 0,
             "role_timeout_seconds": timeout,
             "fail_closed": True,
-            "case_attempt_policy": "one attempt; a pre-retrieval failure fails the run and publishes nothing",
+            "case_attempt_policy": "one attempt; retrieval failure fails the run and publishes nothing",
             "checkpoint_after_each_case": run_store.location,
             "inject_unsupported_fixture": inject_unsupported,
         },

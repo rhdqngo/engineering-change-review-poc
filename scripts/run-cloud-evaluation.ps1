@@ -13,7 +13,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$SourceCommit,
 
-    [string]$RunPrefix = "runs/v5",
+    [string]$RunPrefix = "runs/v6",
 
     [switch]$ApproveBillableRun
 )
@@ -21,7 +21,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 if (-not $ApproveBillableRun) {
-    throw "Refusing to execute the billable 18-case Vertex run without -ApproveBillableRun."
+    throw "Refusing to execute the billable 20-case Vertex run without -ApproveBillableRun."
 }
 
 $status = git status --porcelain
@@ -47,15 +47,15 @@ $experiment = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($experiment.freeze_tag -ne $FreezeTag) {
     throw "Experiment manifest freeze tag does not match -FreezeTag."
 }
-if ($RunPrefix -eq 'runs' -or $RunPrefix -match '^runs/v[1-4](?:/|$)') {
-    throw "Refusing to write a v5 run into a historical v1-v4 GCS prefix."
+if ($RunPrefix -eq 'runs' -or $RunPrefix -match '^runs/v[1-5](?:/|$)') {
+    throw "Refusing to write a v6 run into a historical v1-v5 GCS prefix."
 }
 
 $projectNumber = gcloud projects describe $ProjectId --format "value(projectNumber)"
 $bucketName = "ecr-poc-$projectNumber-$Region"
 $timestamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
 $suffix = [guid]::NewGuid().ToString("N").Substring(0, 8)
-$experimentSuffix = $experiment.experiment_id -replace '^ecr-poc-preregistered-', ''
+$experimentSuffix = $experiment.experiment_id -replace '^ecr-poc-(?:preregistered-|regression-)', ''
 $runId = "cloud-$experimentSuffix-$timestamp-$suffix"
 
 $executionName = gcloud run jobs execute ecr-poc-evaluate `

@@ -13,9 +13,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$SourceCommit,
 
-    [string]$RunPrefix = "runs/v5",
+    [string]$RunPrefix = "runs/v6",
 
-    [string]$PublishedObject = "published/v5/demo.json",
+    [string]$PublishedObject = "published/v6/demo.json",
 
     [string]$AuthenticatedBaseUrl = ""
 )
@@ -36,11 +36,11 @@ if ($LASTEXITCODE -ne 0 -or $freezeCommit -ne $SourceCommit) {
 }
 if (
     $RunPrefix -eq 'runs' -or
-    $RunPrefix -match '^runs/v[1-4](?:/|$)' -or
+    $RunPrefix -match '^runs/v[1-5](?:/|$)' -or
     $PublishedObject -eq 'published/demo.json' -or
-    $PublishedObject -match '^published/v[1-4](?:/|$)'
+    $PublishedObject -match '^published/v[1-5](?:/|$)'
 ) {
-    throw "Refusing to verify v5 through a historical v1-v4 GCS namespace."
+    throw "Refusing to verify v6 through a historical v1-v5 GCS namespace."
 }
 
 $projectNumber = gcloud projects describe $ProjectId --format "value(projectNumber)"
@@ -84,16 +84,18 @@ $jobEnvironment = ConvertTo-EnvironmentMap $job.spec.template.spec.template.spec
 if (
     $serviceEnvironment.ECR_PUBLISHED_OBJECT -ne $PublishedObject -or
     $serviceEnvironment.ECR_FREEZE_VERSION -ne $experiment.experiment_id -or
-    $serviceEnvironment.ECR_SOURCE_COMMIT -ne $SourceCommit
+    $serviceEnvironment.ECR_SOURCE_COMMIT -ne $SourceCommit -or
+    $serviceEnvironment.ECR_LIVE_PROVIDER -ne "vertex-adk" -or
+    $serviceEnvironment.ECR_LIVE_EMBEDDING -ne "vertex"
 ) {
-    throw "Cloud Run service environment does not match the requested v5 identity."
+    throw "Cloud Run service environment does not match the requested v6 identity."
 }
 if (
     $jobEnvironment.ECR_EXPERIMENT_MANIFEST -ne $ExperimentManifest -or
     $jobEnvironment.ECR_GCS_RUN_PREFIX -ne $RunPrefix -or
     $jobEnvironment.ECR_SOURCE_COMMIT -ne $SourceCommit
 ) {
-    throw "Cloud Run Job environment does not match the requested v5 identity."
+    throw "Cloud Run Job environment does not match the requested v6 identity."
 }
 $serviceRevision = gcloud run revisions describe $service.status.latestReadyRevisionName `
     --project $ProjectId `
@@ -180,18 +182,20 @@ if (
     $readiness.source_commit -ne $SourceCommit -or
     $integrity.status -ne "valid" -or
     $integrity.active_experiment_id -ne $experiment.experiment_id -or
+    [string]::IsNullOrWhiteSpace($readiness.embedding_index_fingerprint) -or
+    [string]::IsNullOrWhiteSpace($readiness.identifier_index_fingerprint) -or
     [string]::IsNullOrWhiteSpace($readiness.published_run_id)
 ) {
     throw "Cloud readiness/integrity response did not validate the GCS-published experiment."
 }
 $caseCatalog = Invoke-AuthenticatedGet "api/cases"
-if ($caseCatalog.top_k -ne 6 -or $caseCatalog.cases.Count -ne 18) {
+if ($caseCatalog.top_k -ne 10 -or $caseCatalog.cases.Count -ne 20) {
     throw "Cloud case catalog does not match the frozen experiment."
 }
 $evaluation = Invoke-AuthenticatedGet "api/evaluation"
 if (
     $evaluation.experiment_id -ne $experiment.experiment_id -or
-    $evaluation.cases.Count -ne 18 -or
+    $evaluation.cases.Count -ne 20 -or
     $evaluation.run_id -ne $readiness.published_run_id
 ) {
     throw "Published Cloud evaluation is not the complete requested run."
@@ -225,8 +229,8 @@ $jobProjectRoles = @(
         $_.members -contains "serviceAccount:$expectedJobAccount"
     } | ForEach-Object { $_.role }
 )
-if ($webProjectRoles.Count -ne 0) {
-    throw "Web identity must not have project-level roles: $webProjectRoles"
+if ($webProjectRoles.Count -ne 1 -or $webProjectRoles[0] -ne "roles/aiplatform.user") {
+    throw "Web identity project access is not exactly aiplatform.user."
 }
 if ($jobProjectRoles.Count -ne 1 -or $jobProjectRoles[0] -ne "roles/aiplatform.user") {
     throw "Job identity project access is not exactly aiplatform.user."
@@ -264,10 +268,10 @@ if ($LASTEXITCODE -ne 0) {
 $events = @($logRecords | ForEach-Object { $_.jsonPayload.event })
 if (
     @($events | Where-Object { $_ -eq "job_started" }).Count -ne 1 -or
-    @($events | Where-Object { $_ -eq "case_completed" }).Count -ne 18 -or
+    @($events | Where-Object { $_ -eq "case_completed" }).Count -ne 20 -or
     @($events | Where-Object { $_ -eq "evaluation_completed" }).Count -ne 1
 ) {
-    throw "Structured logs do not contain one start, 18 terminal cases, and one completion."
+    throw "Structured logs do not contain one start, 20 terminal cases, and one completion."
 }
 $serializedLogs = $logRecords | ConvertTo-Json -Depth 20
 if ($serializedLogs -match '"(prompt|raw_output|evidence|credential|token)"\s*:') {

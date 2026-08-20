@@ -7,7 +7,7 @@ import pytest
 
 from ecr_poc.evaluation import evaluate
 from ecr_poc.models import EvaluationRun
-from ecr_poc.storage import StoredObject
+from ecr_poc.storage import StoredObject, validate_historical_runs
 
 
 class CheckpointFailingStore:
@@ -31,132 +31,42 @@ class CheckpointFailingStore:
 
 
 def test_fixture_evaluation_metrics() -> None:
+    output = (Path.cwd() / ".runtime/test-evaluation-v6.json").resolve()
     run = asyncio.run(
         evaluate(
             provider_name="fixture",
             embedding_provider="local",
-            output_path=Path(".runtime/test-evaluation.json"),
+            output_path=output,
+            experiment_manifest="ecr-poc-v6.json",
+            source_commit="LOCAL-V6-FUNCTIONAL-GATE",
             inject_unsupported=True,
             update_latest=False,
         )
     )
-    assert run.metrics["overall"]["retrieval_coverage"] == {
-        "hits": 12,
-        "eligible": 12,
-        "rate": 1.0,
-    }
-    assert run.metrics["overall"]["llm_review_success"]["successes"] == 12
-    assert run.metrics["overall"]["false_alarm"]["cases"] == 0
-    assert run.metrics["overall"]["unsupported_output_blocked"]["blocked"] == 1
-    assert run.metrics["overall"]["review_selection_added_value"][
-        "baseline_candidates"
-    ] == 108
+    assert len(run.cases) == 20
+    assert run.experiment_id == "ecr-poc-regression-v6"
+    assert run.metrics["overall"]["final_docket_hit_at_10"]["eligible_targets"] == 16
+    assert run.metrics["overall"]["clean_benign_false_alarm"]["cases"] == 0
+    assert run.metrics["overall"]["claim_counts"]["blocked"] == 1
+    assert run.metrics["overall"]["selection"]["average_final_docket_size"] == 10
+    assert run.provenance is not None
+    assert run.provenance.identifier_index_fingerprint == run.configuration[
+        "identifier_index_fingerprint"
+    ]
     checkpoint = json.loads(
-        Path(".runtime/test-evaluation.checkpoint.json").read_text(encoding="utf-8")
+        output.with_suffix(".checkpoint.json").read_text(encoding="utf-8")
     )
     assert checkpoint["status"] == "complete"
     assert checkpoint["completed_case_ids"] == [item.case_id for item in run.cases]
 
 
-def test_v2_fixture_run_records_reproducible_provenance() -> None:
-    run = asyncio.run(
-        evaluate(
-            provider_name="fixture",
-            embedding_provider="local",
-            output_path=Path(".runtime/test-evaluation-v2.json"),
-            experiment_manifest="ecr-poc-v2.json",
-            run_id="test-v2-run",
-            source_commit="0123456789abcdef",
-            update_latest=False,
-        )
-    )
-    assert run.experiment_id == "ecr-poc-preregistered-v2"
-    assert run.run_id == "test-v2-run"
-    assert run.provenance is not None
-    assert run.provenance.freeze_tag == "ecr-poc-v2-freeze"
-    assert run.provenance.experiment_manifest == "ecr-poc-v2.json"
-    assert run.provenance.source_commit == "0123456789abcdef"
-    assert run.provenance.prompt_version == "ecr-poc-prompts-v2"
-    assert run.provenance.prompt_hashes == {
-        "change_analyst": "5a840bea138ff965ea727e5498401d573cb563c75f978b3e27a6ab8bdfecac1f",
-        "engineering_review": "d014f104f679b742153b8746059d7584c21f561b98ce494a4763ad10e3733e9b",
-        "evidence_verifier": "9e6057d53ad3ebe7bf68754cf06f50918c862522cb91a952e935eb3afe3a21a6",
-    }
-    assert all(case.run_id == "test-v2-run" for case in run.cases)
-
-
-def test_v3_fixture_run_records_manifest_and_unchanged_prompts() -> None:
-    run = asyncio.run(
-        evaluate(
-            provider_name="fixture",
-            embedding_provider="local",
-            output_path=Path(".runtime/test-evaluation-v3.json"),
-            experiment_manifest="ecr-poc-v3.json",
-            run_id="test-v3-run",
-            source_commit="fedcba9876543210",
-            update_latest=False,
-        )
-    )
-    assert run.experiment_id == "ecr-poc-preregistered-v3"
-    assert run.provenance is not None
-    assert run.provenance.freeze_tag == "ecr-poc-v3-freeze"
-    assert run.provenance.experiment_manifest == "ecr-poc-v3.json"
-    assert run.provenance.prompt_version == "ecr-poc-prompts-v2"
-    assert all(case.run_id == "test-v3-run" for case in run.cases)
-
-
-def test_v4_fixture_run_records_manifest_and_unchanged_prompts() -> None:
-    run = asyncio.run(
-        evaluate(
-            provider_name="fixture",
-            embedding_provider="local",
-            output_path=Path(".runtime/test-evaluation-v4.json"),
-            experiment_manifest="ecr-poc-v4.json",
-            run_id="test-v4-run",
-            source_commit="abcdef0123456789",
-            update_latest=False,
-        )
-    )
-    assert run.experiment_id == "ecr-poc-preregistered-v4"
-    assert run.provenance is not None
-    assert run.provenance.freeze_tag == "ecr-poc-v4-freeze"
-    assert run.provenance.experiment_manifest == "ecr-poc-v4.json"
-    assert run.provenance.prompt_version == "ecr-poc-prompts-v2"
-    assert all(case.run_id == "test-v4-run" for case in run.cases)
-
-
-def test_v5_fixture_run_records_embedding_index_fingerprint() -> None:
-    run = asyncio.run(
-        evaluate(
-            provider_name="fixture",
-            embedding_provider="local",
-            output_path=Path(".runtime/test-evaluation-v5.json"),
-            experiment_manifest="ecr-poc-v5.json",
-            run_id="test-v5-run",
-            source_commit="WORKTREE-V5-TEST",
-            update_latest=False,
-        )
-    )
-    assert run.experiment_id == "ecr-poc-preregistered-v5"
-    assert run.provenance is not None
-    assert run.provenance.freeze_tag == "ecr-poc-v5-freeze"
-    assert run.provenance.embedding_index_manifest == "data/embeddings/ecr-poc-v5.json"
-    assert run.provenance.embedding_index_fingerprint == (
-        run.configuration["embedding_index_fingerprint"]
-    )
-    index_metadata = json.loads(
-        (Path("data/embeddings/ecr-poc-v5.json")).read_text(encoding="utf-8")
-    )
-    assert run.provenance.embedding_index_fingerprint == index_metadata[
-        "offline_reference"
-    ]["vector_fingerprint"]
-    assert {
-        case.embedding_index_fingerprint for case in run.cases
-    } == {run.provenance.embedding_index_fingerprint}
+def test_v1_through_v5_are_read_only_offline_compatible() -> None:
+    validated = validate_historical_runs()
+    assert set(validated) == {"v1", "v2", "v3", "v4", "v5", "v5-q1"}
 
 
 def test_evaluation_refuses_to_overwrite_historical_result_paths() -> None:
-    with pytest.raises(RuntimeError, match="immutable v1-v4 historical result"):
+    with pytest.raises(RuntimeError, match="immutable v1-v5 historical result"):
         asyncio.run(
             evaluate(
                 provider_name="fixture",

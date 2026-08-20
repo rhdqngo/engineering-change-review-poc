@@ -1,182 +1,203 @@
 import asyncio
 
-import pytest
-
-from ecr_poc.data import load_artifacts, load_cases
+from ecr_poc.data import load_cases
 from ecr_poc.models import (
+    CandidateDecision,
+    CandidateDecisionBatch,
+    CandidateFinalStatus,
+    ClaimVerification,
+    ClaimVerificationBatch,
     Decision,
-    FinalStatus,
-    ReviewBatch,
-    ReviewItem,
-    VerificationBatch,
-    VerificationItem,
+    OverallReviewStatus,
+    VerifierVerdict,
 )
 from ecr_poc.pipeline import run_case
 from ecr_poc.providers import FixtureProvider
-from ecr_poc.retrieval import DeterministicHashEmbedder, HybridRetriever
+from ecr_poc.web import _live_runtime
 
 
 def setup_case(case_id: str):
     _, top_k, cases = load_cases()
     case = next(item for item in cases if item.id == case_id)
-    retriever = HybridRetriever(load_artifacts(), DeterministicHashEmbedder())
-    return case, top_k, retriever
+    return case, top_k, _live_runtime().retriever
 
 
-def test_baseline_and_proposed_reuse_identical_top_k() -> None:
+def test_broad_expanded_and_final_docket_are_sealed() -> None:
     case, top_k, retriever = setup_case("DIR-01")
     result = asyncio.run(run_case(case, retriever, FixtureProvider(), top_k))
-    assert result.baseline_candidate_source_ids == result.proposed_candidate_source_ids
-    assert len(result.baseline_candidate_source_ids) == top_k
+    assert result.retrieval is not None
+    assert result.query_processing is not None
+    assert result.retrieval.broad_count == 40
+    assert result.retrieval.expanded_count <= 200
+    assert len(result.candidates) == 10
+    assert result.candidate_fingerprint == result.retrieval.final_docket_fingerprint
+    assert result.broad_candidate_source_ids[:10] != result.proposed_candidate_source_ids
     assert any(
-        item.source_id == "CONFIG_FUNCTION_CODES"
-        and item.status is FinalStatus.VERIFIED_REVIEW
-        for item in result.final_reviews
+        item.source_id in case.expected_review_targets
+        and item.status is CandidateFinalStatus.VERIFIED_REVIEW
+        for item in result.candidate_results
     )
 
 
-def test_all_18_cases_share_candidate_sequence_object_and_fingerprint() -> None:
+def test_all_20_cases_have_deterministic_final_sequence_and_fingerprints() -> None:
     _, top_k, cases = load_cases()
-    retriever = HybridRetriever(load_artifacts(), DeterministicHashEmbedder())
-    results = [
+    retriever = _live_runtime().retriever
+    first = [
         asyncio.run(run_case(case, retriever, FixtureProvider(), top_k))
         for case in cases
     ]
-    assert len(results) == 18
-    for result in results:
-        candidate_ids = [candidate.source_id for candidate in result.candidates]
-        assert result.baseline_candidate_source_ids == candidate_ids
-        assert result.proposed_candidate_source_ids == candidate_ids
-        assert result.embedding_index_fingerprint == retriever.embedding_index_fingerprint
+    second = [
+        asyncio.run(run_case(case, retriever, FixtureProvider(), top_k))
+        for case in cases
+    ]
+    assert len(first) == 20
+    for left, right in zip(first, second):
+        assert left.broad_candidate_source_ids == right.broad_candidate_source_ids
+        assert left.expanded_candidate_source_ids == right.expanded_candidate_source_ids
+        assert left.candidate_fingerprint == right.candidate_fingerprint
+        assert left.embedding_index_fingerprint == retriever.embedding_index_fingerprint
+        assert left.identifier_index_fingerprint == retriever.identifier_index_fingerprint
 
 
-def test_non_exact_evidence_is_blocked_before_verifier() -> None:
+def test_non_exact_claim_is_blocked_before_verifier_and_hidden() -> None:
     case, top_k, retriever = setup_case("DIR-01")
     result = asyncio.run(
         run_case(case, retriever, FixtureProvider(inject_unsupported=True), top_k)
     )
     blocked = [
         item
-        for item in result.final_reviews
-        if item.status is FinalStatus.REJECTED_UNSUPPORTED
+        for item in result.candidate_results
+        if "deterministic_exact_span" in item.blocked_stages
     ]
     assert len(blocked) == 1
-    assert blocked[0].blocked_stage == "deterministic_exact_span"
-    assert blocked[0].evidence is None
-    assert all(
-        item.evidence != "THIS SPAN DOES NOT EXIST IN THE NASA SOURCE"
-        for item in result.final_reviews
-        if item.status is FinalStatus.VERIFIED_REVIEW
+    assert blocked[0].status is CandidateFinalStatus.BLOCKED
+    assert blocked[0].verified_claims == []
+    public_projection = "".join(
+        item.model_dump_json() for item in result.candidate_results
     )
+    assert "THIS SPAN DOES NOT EXIST" not in public_projection
+    assert result.overall_status is OverallReviewStatus.REVIEW_REQUIRED
+    assert result.partial is True
 
 
 class RejectingVerifierProvider(FixtureProvider):
-    async def verify(self, case, change, proposals, candidates):
-        batch = VerificationBatch(
+    async def verify(self, case, claims):
+        _, trace = await super().verify(case, claims)
+        return ClaimVerificationBatch(
             verifications=[
-                VerificationItem(
-                    source_id=proposal.source_id,
-                    supported=False,
-                    reason="Independent verifier found no entailment.",
+                ClaimVerification(
+                    claim_id=claim.claim_id,
+                    verdict=VerifierVerdict.REJECTED,
+                    reason="Evidence does not entail this claim.",
                 )
-                for proposal in proposals
+                for claim in claims
             ]
-        )
-        _, trace = await super().verify(case, change, proposals, candidates)
-        return batch, trace
+        ), trace
 
 
 class DuplicateVerifierProvider(FixtureProvider):
-    async def verify(self, case, change, proposals, candidates):
-        proposal = proposals[0]
-        batch = VerificationBatch(
+    async def verify(self, case, claims):
+        _, trace = await super().verify(case, claims)
+        claim = claims[0]
+        return ClaimVerificationBatch(
             verifications=[
-                VerificationItem(
-                    source_id=proposal.source_id,
-                    supported=True,
+                ClaimVerification(
+                    claim_id=claim.claim_id,
+                    verdict=VerifierVerdict.SUPPORTED,
                     reason="First verdict.",
                 ),
-                VerificationItem(
-                    source_id=proposal.source_id,
-                    supported=True,
+                ClaimVerification(
+                    claim_id=claim.claim_id,
+                    verdict=VerifierVerdict.SUPPORTED,
                     reason="Duplicate verdict.",
                 ),
             ]
-        )
-        _, trace = await super().verify(case, change, proposals, candidates)
-        return batch, trace
+        ), trace
 
 
 class FailingReviewProvider(FixtureProvider):
-    async def review(self, case, change, candidates):
+    async def review(self, case, candidates, final_docket_fingerprint):
         raise RuntimeError("simulated provider outage")
 
 
 class IncompleteReviewProvider(FixtureProvider):
-    async def review(self, case, change, candidates):
-        batch, trace = await super().review(case, change, candidates)
-        incomplete = ReviewBatch(reviews=batch.reviews[:1])
-        return incomplete, trace
+    async def review(self, case, candidates, final_docket_fingerprint):
+        batch, trace = await super().review(
+            case, candidates, final_docket_fingerprint
+        )
+        return CandidateDecisionBatch(decisions=batch.decisions[:1]), trace
 
 
 class DuplicateAndExternalReviewProvider(FixtureProvider):
-    async def review(self, case, change, candidates):
-        batch, trace = await super().review(case, change, candidates)
-        malformed = ReviewBatch(
-            reviews=[
-                *batch.reviews,
-                batch.reviews[0],
-                ReviewItem(
-                    source_id="OUTSIDE_FIXED_TOP_K",
+    async def review(self, case, candidates, final_docket_fingerprint):
+        batch, trace = await super().review(
+            case, candidates, final_docket_fingerprint
+        )
+        return CandidateDecisionBatch(
+            decisions=[
+                *batch.decisions,
+                batch.decisions[0],
+                CandidateDecision(
+                    source_id="OUTSIDE_FINAL_DOCKET",
                     decision=Decision.NO_REVIEW,
-                    short_reason="This source was not retrieved.",
                 ),
             ]
-        )
-        return malformed, trace
+        ), trace
 
 
 class MissingVerifierProvider(FixtureProvider):
-    async def verify(self, case, change, proposals, candidates):
-        _, trace = await super().verify(case, change, proposals, candidates)
-        return VerificationBatch(verifications=[]), trace
+    async def verify(self, case, claims):
+        _, trace = await super().verify(case, claims)
+        return ClaimVerificationBatch(verifications=[]), trace
 
 
-class SlowAnalystProvider(FixtureProvider):
-    async def analyze(self, case):
+class SlowReviewerProvider(FixtureProvider):
+    async def review(self, case, candidates, final_docket_fingerprint):
         await asyncio.sleep(0.05)
-        return await super().analyze(case)
+        return await super().review(case, candidates, final_docket_fingerprint)
+
+
+class SlowVerifierProvider(FixtureProvider):
+    async def verify(self, case, claims):
+        await asyncio.sleep(0.05)
+        return await super().verify(case, claims)
 
 
 def test_independent_verifier_rejection_is_fail_closed() -> None:
     case, top_k, retriever = setup_case("DIR-01")
     result = asyncio.run(run_case(case, retriever, RejectingVerifierProvider(), top_k))
     target = next(
-        item for item in result.final_reviews if item.source_id == "CONFIG_FUNCTION_CODES"
+        item
+        for item in result.candidate_results
+        if item.source_id in case.expected_review_targets
     )
-    assert target.status is FinalStatus.REJECTED_UNSUPPORTED
-    assert target.blocked_stage == "independent_verifier"
-    assert target.evidence is None
+    assert target.status is CandidateFinalStatus.NO_SUPPORTED_CLAIM
+    assert target.verified_claims == []
+    assert result.overall_status is OverallReviewStatus.NO_SUPPORTED_REVIEW
 
 
 def test_duplicate_verifier_verdict_is_fail_closed() -> None:
     case, top_k, retriever = setup_case("DIR-01")
     result = asyncio.run(run_case(case, retriever, DuplicateVerifierProvider(), top_k))
     target = next(
-        item for item in result.final_reviews if item.source_id == "CONFIG_FUNCTION_CODES"
+        item
+        for item in result.candidate_results
+        if item.source_id in case.expected_review_targets
     )
-    assert target.status is FinalStatus.REJECTED_UNSUPPORTED
-    assert target.verifier_reason == "Verifier returned duplicate verdicts"
-    assert target.evidence is None
+    assert target.status is CandidateFinalStatus.BLOCKED
+    assert target.blocked_stages == ["verifier_duplicate_verdict"]
+    assert target.verified_claims == []
 
 
-def test_engineering_review_provider_failure_exposes_no_advice() -> None:
+def test_engineering_reviewer_failure_returns_inconclusive_without_advice() -> None:
     case, top_k, retriever = setup_case("DIR-01")
     result = asyncio.run(run_case(case, retriever, FailingReviewProvider(), top_k))
     assert all(
-        item.status is FinalStatus.INSUFFICIENT_EVIDENCE
-        for item in result.final_reviews
+        item.status is CandidateFinalStatus.BLOCKED
+        for item in result.candidate_results
     )
+    assert all(not item.verified_claims for item in result.candidate_results)
+    assert result.overall_status is OverallReviewStatus.INCONCLUSIVE
     trace = next(item for item in result.role_traces if item.role == "engineering_review")
     assert trace.error == "RuntimeError: simulated provider outage"
 
@@ -186,11 +207,11 @@ def test_missing_reviewer_decisions_are_explicitly_blocked() -> None:
     result = asyncio.run(run_case(case, retriever, IncompleteReviewProvider(), top_k))
     missing = [
         item
-        for item in result.final_reviews
-        if item.blocked_stage == "schema_missing_source"
+        for item in result.candidate_results
+        if "schema_missing_source" in item.blocked_stages
     ]
     assert len(missing) == top_k - 1
-    assert all(item.evidence is None for item in missing)
+    assert all(not item.verified_claims for item in missing)
 
 
 def test_duplicate_and_external_reviewer_decisions_are_fail_closed() -> None:
@@ -198,43 +219,52 @@ def test_duplicate_and_external_reviewer_decisions_are_fail_closed() -> None:
     result = asyncio.run(
         run_case(case, retriever, DuplicateAndExternalReviewProvider(), top_k)
     )
-    blocked_stages = {item.blocked_stage for item in result.final_reviews}
-    assert "schema_duplicate_source" in blocked_stages
-    assert "source_not_in_fixed_top_k" in blocked_stages
     assert all(
-        item.evidence is None
-        for item in result.final_reviews
-        if item.blocked_stage in {"schema_duplicate_source", "source_not_in_fixed_top_k"}
+        item.source_id != "OUTSIDE_FINAL_DOCKET"
+        for item in result.candidate_results
     )
-    duplicate_source = result.proposed_reviews[0].source_id
-    assert not any(
-        item.source_id == duplicate_source
-        and item.status is FinalStatus.VERIFIED_REVIEW
-        for item in result.final_reviews
-    )
+    duplicate = result.candidate_results[0]
+    assert duplicate.status is CandidateFinalStatus.BLOCKED
+    assert duplicate.blocked_stages == ["schema_duplicate_source"]
+    assert result.partial is True
 
 
 def test_missing_verifier_verdict_is_fail_closed() -> None:
     case, top_k, retriever = setup_case("DIR-01")
     result = asyncio.run(run_case(case, retriever, MissingVerifierProvider(), top_k))
     target = next(
-        item for item in result.final_reviews if item.source_id == "CONFIG_FUNCTION_CODES"
+        item
+        for item in result.candidate_results
+        if item.source_id in case.expected_review_targets
     )
-    assert target.status is FinalStatus.REJECTED_UNSUPPORTED
-    assert target.blocked_stage == "independent_verifier"
-    assert target.verifier_reason == "Verifier returned no verdict"
-    assert target.evidence is None
+    assert target.status is CandidateFinalStatus.BLOCKED
+    assert target.blocked_stages == ["verifier_missing_verdict"]
+    assert target.verifier_verdicts == [VerifierVerdict.MISSING]
+    assert target.verified_claims == []
 
 
-def test_change_analyst_timeout_fails_before_retrieval() -> None:
+def test_reviewer_and_verifier_timeouts_fail_closed() -> None:
     case, top_k, retriever = setup_case("DIR-01")
-    with pytest.raises(TimeoutError):
-        asyncio.run(
-            run_case(
-                case,
-                retriever,
-                SlowAnalystProvider(),
-                top_k,
-                role_timeout_seconds=0.001,
-            )
+    reviewer = asyncio.run(
+        run_case(
+            case,
+            retriever,
+            SlowReviewerProvider(),
+            top_k,
+            role_timeout_seconds=0.001,
         )
+    )
+    assert reviewer.overall_status is OverallReviewStatus.INCONCLUSIVE
+    assert not any(item.verified_claims for item in reviewer.candidate_results)
+
+    verifier = asyncio.run(
+        run_case(
+            case,
+            retriever,
+            SlowVerifierProvider(),
+            top_k,
+            role_timeout_seconds=0.001,
+        )
+    )
+    assert verifier.overall_status is OverallReviewStatus.INCONCLUSIVE
+    assert not any(item.verified_claims for item in verifier.candidate_results)

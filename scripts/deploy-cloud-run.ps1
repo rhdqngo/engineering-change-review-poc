@@ -13,11 +13,11 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$SourceCommit,
 
-    [string]$InputPrefix = "frozen/ecr-poc-v5",
+    [string]$InputPrefix = "frozen/ecr-poc-v6",
 
-    [string]$RunPrefix = "runs/v5",
+    [string]$RunPrefix = "runs/v6",
 
-    [string]$PublishedObject = "published/v5/demo.json",
+    [string]$PublishedObject = "published/v6/demo.json",
 
     [switch]$ApproveBillableResources
 )
@@ -52,13 +52,13 @@ if ($experiment.freeze_tag -ne $FreezeTag) {
     throw "Experiment manifest freeze tag does not match -FreezeTag."
 }
 if (
-    $InputPrefix -match '^frozen/ecr-poc-v[1-4](?:/|$)' -or
+    $InputPrefix -match '^frozen/ecr-poc-v[1-5](?:/|$)' -or
     $RunPrefix -eq 'runs' -or
-    $RunPrefix -match '^runs/v[1-4](?:/|$)' -or
+    $RunPrefix -match '^runs/v[1-5](?:/|$)' -or
     $PublishedObject -eq 'published/demo.json' -or
-    $PublishedObject -match '^published/v[1-4](?:/|$)'
+    $PublishedObject -match '^published/v[1-5](?:/|$)'
 ) {
-    throw "Refusing to configure v5 against a historical v1-v4 GCS namespace."
+    throw "Refusing to configure v6 against a historical v1-v5 GCS namespace."
 }
 
 $projectNumber = gcloud projects describe $ProjectId --format "value(projectNumber)"
@@ -74,10 +74,19 @@ $jobServiceAccount = "ecr-poc-job@$ProjectId.iam.gserviceaccount.com"
 $webEnvironment = @(
     "ECR_RESULT_STORE=gcs"
     "ECR_GCS_BUCKET=$bucketName"
+    "ECR_GCS_INPUT_PREFIX=$InputPrefix"
     "ECR_PUBLISHED_OBJECT=$PublishedObject"
     "ECR_FREEZE_VERSION=$($experiment.experiment_id)"
     "ECR_PUBLISHED_CACHE_TTL_SECONDS=30"
     "ECR_SOURCE_COMMIT=$head"
+    "GOOGLE_GENAI_USE_VERTEXAI=TRUE"
+    "GOOGLE_CLOUD_PROJECT=$ProjectId"
+    "GOOGLE_CLOUD_LOCATION=global"
+    "ECR_LIVE_PROVIDER=vertex-adk"
+    "ECR_LIVE_EMBEDDING=vertex"
+    "ECR_LLM_MODEL=gemini-3.5-flash"
+    "ECR_EMBEDDING_MODEL=gemini-embedding-001"
+    "ECR_ROLE_TIMEOUT_SECONDS=120"
 ) -join ","
 
 gcloud run deploy ecr-poc `
@@ -90,10 +99,11 @@ gcloud run deploy ecr-poc `
     --execution-environment gen2 `
     --port 8080 `
     --cpu 1 `
-    --memory 512Mi `
+    --memory 2Gi `
     --min-instances 0 `
     --max-instances 1 `
-    --concurrency 20 `
+    --concurrency 1 `
+    --timeout 300 `
     --set-env-vars $webEnvironment `
     --no-allow-unauthenticated `
     --quiet
@@ -148,7 +158,7 @@ gcloud run jobs deploy ecr-poc-evaluate `
     --max-retries 0 `
     --task-timeout 30m `
     --cpu 1 `
-    --memory 1Gi `
+    --memory 2Gi `
     --set-env-vars $jobEnvironment `
     --quiet
 if ($LASTEXITCODE -ne 0) {

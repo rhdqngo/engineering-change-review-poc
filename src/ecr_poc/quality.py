@@ -90,12 +90,21 @@ def compare_runs(
     root = root or repository_root()
     baseline = EvaluationRun.model_validate_json(baseline_path.read_bytes())
     variant = EvaluationRun.model_validate_json(variant_path.read_bytes())
-    _, _, definitions = load_cases(root)
+    baseline_manifest = (
+        baseline.provenance.experiment_manifest if baseline.provenance else None
+    )
+    variant_manifest = variant.provenance.experiment_manifest if variant.provenance else None
+    _, _, definitions = load_cases(root, baseline_manifest)
+    _, _, variant_definitions = load_cases(root, variant_manifest)
     baseline_by_id = {case.case_id: case for case in baseline.cases}
     variant_by_id = {case.case_id: case for case in variant.cases}
     expected_ids = {case.id for case in definitions}
+    if {case.id for case in variant_definitions} != expected_ids:
+        raise ValueError("Quality manifests do not use the same frozen case set")
     if set(baseline_by_id) != expected_ids or set(variant_by_id) != expected_ids:
-        raise ValueError("Both quality runs must contain the complete active 18-case set")
+        raise ValueError(
+            "Both quality runs must contain the complete frozen case set"
+        )
     baseline_query = baseline.configuration.get("query_version", "structured-change-v1")
     variant_query = variant.configuration.get("query_version", "structured-change-v1")
     invariant_checks = {

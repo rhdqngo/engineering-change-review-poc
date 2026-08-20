@@ -1,14 +1,15 @@
-import asyncio
 import json
-from pathlib import Path
 
 import pytest
 
-from ecr_poc.data import repository_root
-from ecr_poc.evaluation import evaluate
+from ecr_poc.data import active_data_root, repository_root
 from ecr_poc.metrics import calculate_metrics
 from ecr_poc.models import PipelineResult
-from ecr_poc.storage import _frozen_paths, _validated_run
+from ecr_poc.storage import (
+    _frozen_paths,
+    _validated_run,
+    v6_freeze_payload_relatives,
+)
 
 
 def test_v5_freeze_upload_includes_embedding_reproducibility_manifest() -> None:
@@ -19,11 +20,34 @@ def test_v5_freeze_upload_includes_embedding_reproducibility_manifest() -> None:
     assert "data/embeddings/ecr-poc-v5.json" in paths
 
 
+def test_v6_pre_freeze_payload_set_is_exact_and_excludes_mutable_manifest() -> None:
+    root = active_data_root()
+    assert v6_freeze_payload_relatives(root) == (
+        "data/embeddings/ecr-poc-v6-vectors.f32",
+        "data/embeddings/ecr-poc-v6.json",
+        "data/nasa/cfs-v7.0.1-artifacts.jsonl.gz",
+        "data/nasa/cfs-v7.0.1-raw-sources.tar.gz",
+        "data/relations/ecr-poc-v6-identifiers.json.gz",
+    )
+
+
 def test_retained_v1_run_passes_publish_integrity_checks() -> None:
     content = (repository_root() / "results" / "runs" / "vertex-adk.json").read_bytes()
     run = _validated_run(content)
     assert len(run.cases) == 18
     assert run.metrics["overall"]["retrieval_coverage"]["hits"] == 10
+
+
+def test_v6_fixture_result_has_complete_top_10_and_sanitized_role_traces() -> None:
+    content = (
+        repository_root() / "results" / "runs" / "fixture-v6-baseline.json"
+    ).read_bytes()
+    run = _validated_run(content)
+    assert len(run.cases) == 20
+    assert all(len(case.candidates) == 10 for case in run.cases)
+    assert all(
+        not trace.raw_output for case in run.cases for trace in case.role_traces
+    )
 
 
 def test_publish_integrity_rejects_changed_candidate_arm() -> None:
@@ -59,115 +83,35 @@ def test_publish_integrity_rejects_duplicate_verified_reviews() -> None:
         _validated_run(json.dumps(payload).encode("utf-8"))
 
 
-def test_cloud_v2_integrity_requires_one_supported_verifier_verdict() -> None:
-    run = asyncio.run(
-        evaluate(
-            provider_name="fixture",
-            embedding_provider="local",
-            output_path=Path(".runtime/test-v2-publication.json"),
-            experiment_manifest="ecr-poc-v2.json",
-            run_id="strict-v2-run",
-            source_commit="0123456789abcdef",
-            update_latest=False,
-        )
-    )
-    payload = run.model_dump(mode="json")
-    payload["provider"] = "vertex-adk"
-    payload["model"] = "gemini-3.5-flash"
-    payload["embedding_model"] = "gemini-embedding-001"
-    payload["provenance"].update(
-        {
-            "artifact_store": "gcs",
-            "cloud_execution": "ecr-poc-evaluate-abcde",
-            "container_image_digest": "asia-docker.pkg.dev/p/r/i@sha256:" + "a" * 64,
-        }
-    )
-    for case in payload["cases"]:
-        case["provider"] = "vertex-adk"
-        case["model"] = "gemini-3.5-flash"
-        case["embedding_model"] = "gemini-embedding-001"
-        for trace in case["role_traces"]:
-            trace["provider"] = "vertex-adk"
-            trace["model"] = "gemini-3.5-flash"
-
-    content = json.dumps(payload).encode("utf-8")
-    payload["provenance"].pop("experiment_manifest")
-    content = json.dumps(payload).encode("utf-8")
-    assert (
-        _validated_run(
-            content,
-            require_cloud=True,
-            expected_experiment_manifest="ecr-poc-v2.json",
-        ).run_id
-        == "strict-v2-run"
-    )
-
-    first_case = payload["cases"][0]
-    verifier = next(
-        trace
-        for trace in first_case["role_traces"]
-        if trace["role"] == "evidence_verifier"
-    )
-    verifier["parsed"]["verifications"].append(
-        verifier["parsed"]["verifications"][0]
-    )
-    with pytest.raises(RuntimeError, match="one supported verifier verdict"):
-        _validated_run(
-            json.dumps(payload).encode("utf-8"),
-            require_cloud=True,
-            expected_experiment_manifest="ecr-poc-v2.json",
-        )
-
-
-def test_cloud_v3_integrity_requires_explicit_manifest() -> None:
-    run = asyncio.run(
-        evaluate(
-            provider_name="fixture",
-            embedding_provider="local",
-            output_path=Path(".runtime/test-v3-publication.json"),
-            experiment_manifest="ecr-poc-v3.json",
-            run_id="strict-v3-run",
-            source_commit="0123456789abcdef",
-            update_latest=False,
-        )
-    )
-    payload = run.model_dump(mode="json")
-    payload["provenance"]["experiment_manifest"] = None
-    with pytest.raises(ValueError, match="require an experiment manifest"):
-        _validated_run(json.dumps(payload).encode("utf-8"))
-
-
-def test_cloud_v4_integrity_requires_explicit_manifest() -> None:
-    run = asyncio.run(
-        evaluate(
-            provider_name="fixture",
-            embedding_provider="local",
-            output_path=Path(".runtime/test-v4-publication.json"),
-            experiment_manifest="ecr-poc-v4.json",
-            run_id="strict-v4-run",
-            source_commit="0123456789abcdef",
-            update_latest=False,
-        )
-    )
-    payload = run.model_dump(mode="json")
-    payload["provenance"]["experiment_manifest"] = None
-    with pytest.raises(ValueError, match="require an experiment manifest"):
-        _validated_run(json.dumps(payload).encode("utf-8"))
-
-
 def test_v5_integrity_rejects_embedding_index_fingerprint_drift() -> None:
-    run = asyncio.run(
-        evaluate(
-            provider_name="fixture",
-            embedding_provider="local",
-            output_path=Path(".runtime/test-v5-fingerprint.json"),
-            experiment_manifest="ecr-poc-v5.json",
-            run_id="strict-v5-run",
-            source_commit="WORKTREE-V5-TEST",
-            update_latest=False,
+    payload = json.loads(
+        (repository_root() / "results/runs/vertex-adk-v5.json").read_text(
+            encoding="utf-8"
         )
     )
-    payload = run.model_dump(mode="json")
     payload["cases"][0]["embedding_index_fingerprint"] = "0" * 64
     with pytest.raises(RuntimeError, match="embedding index fingerprint mismatch"):
+        _validated_run(json.dumps(payload).encode("utf-8"))
+
+
+def test_v6_integrity_rejects_exposed_unverified_claim() -> None:
+    path = repository_root() / "results/runs/fixture-v6-baseline.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    candidate_result = next(
+        item
+        for item in payload["cases"][0]["candidate_results"]
+        if item["status"] != "VERIFIED_REVIEW"
+    )
+    verified = next(
+        item
+        for item in payload["cases"][0]["candidate_results"]
+        if item["status"] == "VERIFIED_REVIEW"
+    )
+    candidate_result["verified_claims"] = [
+        dict(verified["verified_claims"][0])
+    ]
+    payload["metrics"] = calculate_metrics(
+        [PipelineResult.model_validate(case) for case in payload["cases"]]
+    )
+    with pytest.raises(RuntimeError, match="unsupported claim was exposed"):
         _validated_run(json.dumps(payload).encode("utf-8"))

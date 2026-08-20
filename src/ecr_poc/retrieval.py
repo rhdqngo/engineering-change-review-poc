@@ -5,7 +5,7 @@ import json
 import math
 import os
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Sequence
 from itertools import pairwise
 from pathlib import Path
@@ -14,8 +14,26 @@ from typing import Protocol
 from google import genai
 from google.genai import types
 
-from .data import load_artifacts, repository_root
-from .models import ArtifactSpan, CaseDefinition, RetrievedCandidate, StructuredChange
+from .identifier_index import (
+    IdentifierIndex,
+    build_identifier_index,
+    identifier_specificity,
+)
+from .models import (
+    ArtifactSpan,
+    IncomingArtifact,
+    RetrievalResult,
+    RetrievalSummary,
+    RetrievedCandidate,
+)
+from .query_processing import process_query
+
+BROAD_K = 40
+FINAL_K = 10
+MAX_EXPANDED_POOL = 200
+MAX_RELATION_CANDIDATES = MAX_EXPANDED_POOL - BROAD_K
+HYBRID_FINAL_WEIGHT = 0.75
+RELATION_FINAL_WEIGHT = 0.25
 
 _WORD = re.compile(r"[A-Za-z]+(?:[A-Z][a-z]+)*|[0-9]+")
 _CAMEL = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
@@ -41,7 +59,7 @@ class Embedder(Protocol):
 
 
 class DeterministicHashEmbedder:
-    """Offline deterministic dense vectors for tests and UI fixtures, not LLM results."""
+    """Offline deterministic dense vectors for tests and UI fixtures only."""
 
     model_name = "deterministic-hash-embedding-v1"
 
@@ -58,9 +76,7 @@ class DeterministicHashEmbedder:
             sign = 1.0 if digest[4] & 1 else -1.0
             vector[index] += sign
         norm = math.sqrt(sum(value * value for value in vector))
-        if norm:
-            vector = [value / norm for value in vector]
-        return vector
+        return [value / norm for value in vector] if norm else vector
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         return [self._embed(text) for text in texts]
@@ -83,32 +99,59 @@ class VertexEmbedder:
         self.model_name = model_name
         self.output_dimensionality = output_dimensionality
         self.client = genai.Client(vertexai=True, project=project, location=location)
+        from .data import repository_root
+
         self.cache_path = cache_path or (
             repository_root() / ".cache" / "ecr-poc" / "vertex-embeddings.json"
         )
         self._cache = self._read_cache()
 
     def _read_cache(self) -> dict[str, list[float]]:
-        if not self.cache_path.exists():
-            return {}
-        with self.cache_path.open(encoding="utf-8") as handle:
-            value = json.load(handle)
-        return value if isinstance(value, dict) else {}
+        cache: dict[str, list[float]] = {}
+        candidates = [self.cache_path]
+        parts = self.cache_path.with_suffix(".parts")
+        if parts.is_dir():
+            candidates.extend(sorted(parts.glob("*.json")))
+        for candidate in candidates:
+            if not candidate.is_file():
+                continue
+            with candidate.open(encoding="utf-8") as handle:
+                value = json.load(handle)
+            if not isinstance(value, dict):
+                continue
+            for key, vector in value.items():
+                if isinstance(key, str) and isinstance(vector, list):
+                    cache[key] = [float(item) for item in vector]
+        return cache
 
-    def _write_cache(self) -> None:
-        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.cache_path.with_suffix(".tmp")
+    def _write_cache_batch(self, entries: dict[str, list[float]]) -> None:
+        parts = self.cache_path.with_suffix(".parts")
+        parts.mkdir(parents=True, exist_ok=True)
+        fingerprint = hashlib.sha256(
+            "\n".join(sorted(entries)).encode("ascii")
+        ).hexdigest()
+        destination = parts / f"{fingerprint}.json"
+        if destination.exists():
+            return
+        temporary = parts / f"{fingerprint}.tmp"
         with temporary.open("w", encoding="utf-8") as handle:
-            json.dump(self._cache, handle, separators=(",", ":"))
-        temporary.replace(self.cache_path)
+            json.dump(entries, handle, separators=(",", ":"))
+        temporary.replace(destination)
 
     def _key(self, purpose: str, text: str) -> str:
         payload = f"{self.model_name}|{self.output_dimensionality}|{purpose}|{text}"
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-    def _embed(self, texts: Sequence[str], purpose: str) -> list[list[float]]:
+    def _embed(
+        self, texts: Sequence[str], purpose: str, *, use_cache: bool = True
+    ) -> list[list[float]]:
         keys = [self._key(purpose, text) for text in texts]
-        missing = [(key, text) for key, text in zip(keys, texts) if key not in self._cache]
+        resolved = dict(self._cache) if use_cache else {}
+        missing_by_key: dict[str, str] = {}
+        for key, text in zip(keys, texts):
+            if key not in resolved:
+                missing_by_key.setdefault(key, text)
+        missing = list(missing_by_key.items())
         task_type = "RETRIEVAL_DOCUMENT" if purpose == "document" else "RETRIEVAL_QUERY"
         for offset in range(0, len(missing), 100):
             batch = missing[offset : offset + 100]
@@ -123,19 +166,22 @@ class VertexEmbedder:
             )
             if not response.embeddings or len(response.embeddings) != len(batch):
                 raise RuntimeError("Vertex embedding response count mismatch")
+            completed: dict[str, list[float]] = {}
             for (key, _), embedding in zip(batch, response.embeddings):
                 if not embedding.values:
                     raise RuntimeError("Vertex embedding response had no values")
-                self._cache[key] = [float(value) for value in embedding.values]
-        if missing:
-            self._write_cache()
-        return [self._cache[key] for key in keys]
+                completed[key] = [float(value) for value in embedding.values]
+            resolved.update(completed)
+            if use_cache:
+                self._cache.update(completed)
+                self._write_cache_batch(completed)
+        return [resolved[key] for key in keys]
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         return self._embed(texts, "document")
 
     def embed_query(self, text: str) -> list[float]:
-        return self._embed([text], "query")[0]
+        return self._embed([text], "query", use_cache=False)[0]
 
 
 def _cosine(left: Sequence[float], right: Sequence[float]) -> float:
@@ -151,6 +197,19 @@ def _min_max(values: Sequence[float]) -> list[float]:
     return [(value - low) / (high - low) for value in values]
 
 
+def candidate_fingerprint(candidates: Sequence[RetrievedCandidate]) -> str:
+    identity = [
+        {
+            "rank": item.rank,
+            "source_id": item.source_id,
+            "content_sha256": hashlib.sha256(item.content.encode("utf-8")).hexdigest(),
+        }
+        for item in candidates
+    ]
+    payload = json.dumps(identity, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 class HybridRetriever:
     def __init__(
         self,
@@ -160,7 +219,9 @@ class HybridRetriever:
         embedding_weight: float = 0.5,
         k1: float = 1.5,
         b: float = 0.75,
-        query_version: str = "structured-change-v1",
+        document_embeddings: Sequence[Sequence[float]] | None = None,
+        embedding_index_fingerprint: str | None = None,
+        identifier_index: IdentifierIndex | None = None,
     ) -> None:
         if not math.isclose(lexical_weight + embedding_weight, 1.0):
             raise ValueError("Hybrid weights must sum to 1")
@@ -170,33 +231,35 @@ class HybridRetriever:
         self.embedding_weight = embedding_weight
         self.k1 = k1
         self.b = b
-        if query_version not in {
-            "structured-change-v1",
-            "structured-change-v2-artifact-delta",
-        }:
-            raise ValueError(f"Unknown retrieval query version: {query_version}")
-        self.query_version = query_version
+        self.identifier_index = identifier_index or build_identifier_index(self.artifacts)
+        self.identifier_index_fingerprint = self.identifier_index.fingerprint
+        self._by_id = {artifact.source_id: index for index, artifact in enumerate(self.artifacts)}
         self._tokens = [tokenize(f"{item.title}\n{item.content}") for item in self.artifacts]
         self._lengths = [len(tokens) for tokens in self._tokens]
         self._avg_length = sum(self._lengths) / max(len(self._lengths), 1)
         self._document_frequency: Counter[str] = Counter()
         for tokens in self._tokens:
             self._document_frequency.update(set(tokens))
-        self._document_embeddings = embedder.embed_documents(
-            [f"{item.title}\n{item.content}" for item in self.artifacts]
-        )
-        embedding_identity = {
-            "model": embedder.model_name,
-            "sources": [item.source_id for item in self.artifacts],
-            "vectors": self._document_embeddings,
-        }
-        self.embedding_index_fingerprint = hashlib.sha256(
-            json.dumps(
-                embedding_identity,
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode("utf-8")
-        ).hexdigest()
+        self._document_embeddings: Sequence[Sequence[float]]
+        if document_embeddings is None:
+            self._document_embeddings = embedder.embed_documents(
+                [f"{item.title}\n{item.content}" for item in self.artifacts]
+            )
+            identity = {
+                "model": embedder.model_name,
+                "sources": [item.source_id for item in self.artifacts],
+                "vectors": self._document_embeddings,
+            }
+            self.embedding_index_fingerprint = hashlib.sha256(
+                json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()
+        else:
+            if len(document_embeddings) != len(self.artifacts):
+                raise ValueError("Frozen document vector count does not match artifacts")
+            if not embedding_index_fingerprint:
+                raise ValueError("Frozen document vectors require an index fingerprint")
+            self._document_embeddings = document_embeddings
+            self.embedding_index_fingerprint = embedding_index_fingerprint
 
     def _bm25(self, query_tokens: Sequence[str], index: int) -> float:
         frequencies = Counter(self._tokens[index])
@@ -209,42 +272,34 @@ class HybridRetriever:
                 continue
             document_frequency = self._document_frequency[token]
             inverse_document_frequency = math.log(
-                1 + (document_count - document_frequency + 0.5) / (document_frequency + 0.5)
+                1
+                + (document_count - document_frequency + 0.5)
+                / (document_frequency + 0.5)
             )
             denominator = frequency + self.k1 * (
                 1 - self.b + self.b * length / max(self._avg_length, 1)
             )
-            score += inverse_document_frequency * frequency * (self.k1 + 1) / denominator
+            score += (
+                inverse_document_frequency
+                * frequency
+                * (self.k1 + 1)
+                / denominator
+            )
         return score
 
     def retrieve(
         self,
-        change: StructuredChange,
-        top_k: int,
-        *,
-        case: CaseDefinition | None = None,
-    ) -> list[RetrievedCandidate]:
-        query_parts = [
-                change.artifact_or_subsystem,
-                change.parameter,
-                change.old_value,
-                change.new_value,
-                change.change_type,
-                " ".join(change.related_terms),
-        ]
-        if self.query_version == "structured-change-v2-artifact-delta":
-            if case is None:
-                raise ValueError("artifact-delta query requires the frozen case definition")
-            query_parts.extend(
-                [
-                    case.changed_source_id,
-                    case.original_content,
-                    case.changed_content,
-                ]
-            )
-        query = "\n".join(part for part in query_parts if part)
-        query_tokens = tokenize(query)
-        query_embedding = self.embedder.embed_query(query)
+        incoming: IncomingArtifact,
+        final_k: int = FINAL_K,
+        broad_k: int = BROAD_K,
+    ) -> RetrievalResult:
+        if broad_k != BROAD_K or final_k != FINAL_K:
+            raise ValueError("Purpose-driven v6 requires Broad Top-40 and Final Top-10")
+        query = process_query(incoming)
+        if query.query_text is None:
+            raise RuntimeError("Deterministic query serialization is unavailable")
+        query_tokens = list(dict.fromkeys(tokenize(query.query_text)))
+        query_embedding = self.embedder.embed_query(query.query_text)
         bm25_scores = [self._bm25(query_tokens, index) for index in range(len(self.artifacts))]
         embedding_scores = [
             _cosine(query_embedding, embedding) for embedding in self._document_embeddings
@@ -255,36 +310,119 @@ class HybridRetriever:
             self.lexical_weight * lexical + self.embedding_weight * semantic
             for lexical, semantic in zip(normalized_bm25, normalized_embeddings)
         ]
-        ordered = sorted(
+        broad_indexes = sorted(
             range(len(self.artifacts)),
             key=lambda index: (-hybrid_scores[index], self.artifacts[index].source_id),
-        )[:top_k]
-        candidates: list[RetrievedCandidate] = []
-        for rank, index in enumerate(ordered, start=1):
-            artifact = self.artifacts[index]
-            candidates.append(
-                RetrievedCandidate(
-                    **artifact.model_dump(),
-                    rank=rank,
-                    bm25_score=round(bm25_scores[index], 8),
-                    embedding_score=round(embedding_scores[index], 8),
-                    hybrid_score=round(hybrid_scores[index], 8),
+        )[:broad_k]
+        broad_ranks = {index: rank for rank, index in enumerate(broad_indexes, start=1)}
+
+        relation_edges: dict[int, dict[str, float]] = defaultdict(dict)
+        corpus_size = len(self.artifacts)
+        for identifier in query.extracted_identifiers:
+            for entry in self.identifier_index.eligible_entries(identifier):
+                specificity = identifier_specificity(
+                    entry.document_frequency, corpus_size
                 )
-            )
-        return candidates
+                for source_id in entry.postings:
+                    index = self._by_id[source_id]
+                    relation_edges[index][identifier] = max(
+                        relation_edges[index].get(identifier, 0.0), specificity
+                    )
+        for broad_index, broad_rank in broad_ranks.items():
+            seed_strength = 1 / math.log2(broad_rank + 1)
+            for identifier in self.identifier_index.seed_identifiers(
+                self.artifacts[broad_index].source_id, corpus_size
+            ):
+                for entry in self.identifier_index.eligible_entries(identifier):
+                    edge_score = seed_strength * identifier_specificity(
+                        entry.document_frequency, corpus_size
+                    )
+                    for source_id in entry.postings:
+                        index = self._by_id[source_id]
+                        relation_edges[index][identifier] = max(
+                            relation_edges[index].get(identifier, 0.0), edge_score
+                        )
 
-
-def candidate_fingerprint(candidates: Sequence[RetrievedCandidate]) -> str:
-    identity = [
-        {
-            "rank": item.rank,
-            "source_id": item.source_id,
-            "content_sha256": hashlib.sha256(item.content.encode("utf-8")).hexdigest(),
+        relation_scores = {
+            index: max(edges.values(), default=0.0)
+            for index, edges in relation_edges.items()
         }
-        for item in candidates
-    ]
-    payload = json.dumps(identity, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        broad_set = set(broad_indexes)
+        relation_only = sorted(
+            (index for index in relation_scores if index not in broad_set),
+            key=lambda index: (
+                -relation_scores[index],
+                -hybrid_scores[index],
+                self.artifacts[index].source_id,
+            ),
+        )[:MAX_RELATION_CANDIDATES]
+        pool_indexes = broad_indexes + relation_only
+        final_scores = {
+            index: HYBRID_FINAL_WEIGHT * hybrid_scores[index]
+            + RELATION_FINAL_WEIGHT * relation_scores.get(index, 0.0)
+            for index in pool_indexes
+        }
+        expanded_indexes = sorted(
+            pool_indexes,
+            key=lambda index: (
+                -final_scores[index],
+                -hybrid_scores[index],
+                self.artifacts[index].source_id,
+            ),
+        )
+
+        def make_candidate(index: int, rank: int) -> RetrievedCandidate:
+            artifact = self.artifacts[index]
+            origins: list[str] = []
+            if bm25_scores[index] > 0:
+                origins.append("lexical")
+            origins.append("dense")
+            relation_identifiers = sorted(relation_edges.get(index, {}))
+            if relation_identifiers:
+                origins.append("relation_expansion")
+            return RetrievedCandidate(
+                **artifact.model_dump(),
+                rank=rank,
+                bm25_score=round(bm25_scores[index], 8),
+                embedding_score=round(embedding_scores[index], 8),
+                hybrid_score=round(hybrid_scores[index], 8),
+                retrieval_origins=origins,
+                broad_rank=broad_ranks.get(index),
+                relation_identifiers=relation_identifiers,
+                relation_score=round(relation_scores.get(index, 0.0), 8),
+                final_score=round(final_scores.get(index, hybrid_scores[index]), 8),
+            )
+
+        broad_candidates = [
+            make_candidate(index, rank)
+            for rank, index in enumerate(broad_indexes, start=1)
+        ]
+        expanded_candidates = [
+            make_candidate(index, rank)
+            for rank, index in enumerate(expanded_indexes, start=1)
+        ]
+        final_docket = [
+            make_candidate(index, rank)
+            for rank, index in enumerate(expanded_indexes[:final_k], start=1)
+        ]
+        summary = RetrievalSummary(
+            baseline_count=len(self.artifacts),
+            broad_k=broad_k,
+            broad_count=len(broad_candidates),
+            broad_candidate_fingerprint=candidate_fingerprint(broad_candidates),
+            relation_expansion_count=len(relation_only),
+            expanded_count=len(expanded_candidates),
+            expanded_pool_fingerprint=candidate_fingerprint(expanded_candidates),
+            final_k=final_k,
+            final_docket_fingerprint=candidate_fingerprint(final_docket),
+        )
+        return RetrievalResult(
+            query_processing=query,
+            summary=summary,
+            broad_candidates=broad_candidates,
+            expanded_candidates=expanded_candidates,
+            final_docket=final_docket,
+        )
 
 
 def build_embedder(provider: str) -> Embedder:
@@ -302,23 +440,23 @@ def build_embedder(provider: str) -> Embedder:
     raise ValueError(f"Unknown embedding provider: {provider}")
 
 
-def hybrid_retrieval_tool(query: str, top_k: int = 6) -> dict[str, object]:
-    """Return fixed hybrid-retrieval candidates for an already normalized change.
+def hybrid_retrieval_tool(
+    artifact_type: str, text: str, top_k: int = FINAL_K
+) -> dict[str, object]:
+    """Deterministic local demonstration tool, never an Agent."""
 
-    This public ADK-compatible function is a deterministic shared tool, not an
-    agent. `query` becomes the normalized parameter and related term input.
-    Production evaluation uses `HybridRetriever` directly so both experiment
-    arms share the exact candidate objects and fingerprint.
-    """
-    change = StructuredChange(
-        artifact_or_subsystem="SAMPLE_APP",
-        parameter=query,
-        change_type="query",
-        related_terms=tokenize(query),
+    from .data import load_artifacts
+    from .models import IncomingArtifactType
+
+    incoming = IncomingArtifact(
+        artifact_type=IncomingArtifactType(artifact_type),
+        text=text,
     )
     retriever = HybridRetriever(load_artifacts(), DeterministicHashEmbedder())
-    candidates = retriever.retrieve(change, top_k)
+    result = retriever.retrieve(incoming, final_k=top_k)
     return {
-        "candidate_fingerprint": candidate_fingerprint(candidates),
-        "candidates": [candidate.model_dump() for candidate in candidates],
+        "broad_candidate_fingerprint": result.summary.broad_candidate_fingerprint,
+        "expanded_pool_fingerprint": result.summary.expanded_pool_fingerprint,
+        "final_docket_fingerprint": result.summary.final_docket_fingerprint,
+        "candidates": [candidate.model_dump() for candidate in result.final_docket],
     }

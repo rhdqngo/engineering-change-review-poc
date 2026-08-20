@@ -1,88 +1,57 @@
-# Review Docket Screen Contract
+# Frozen Regression Docket Screen Contract
 
-state: provisional  
-route: `/`  
-primary action: inspect a frozen case's verified review selection
+state: provisional
+route: `/evaluation`
+primary action: inspect one frozen Incoming Artifact case and its supported atomic claims
+
+## UI profile
+
+- Core goal: inspect the published outcome of any of the 20 frozen regression cases, then trace a supported claim to an exact baseline span.
+- Primary mode: monitor-analyze. Secondary mode: browse-compare.
+- Audience and consequence: engineering reviewer; an unsupported recommendation must remain hidden.
+- Viewports and input: 1440 × 900 and 390 × 844; mouse, touch, and keyboard.
+- Critical information: result authority, experiment/run provenance, Incoming Artifact identity, Broad/Expanded/Final retrieval scope, Final Docket status, supported claim, exact evidence, verifier outcome, and blocked stage.
 
 ## Required states
 
-- loading and run-disabled
-- fixed candidates with no review
-- verified review with exact evidence
-- insufficient evidence
-- rejected unsupported output
-- clean/restore case with zero verified findings
-- API failure with a visible recovery message
-- published GCS result unavailable or invalid with a visible retry path and no local fallback in Cloud
+- loading with Reload disabled
+- `REVIEW_REQUIRED` with supported atomic claims
+- `NO_SUPPORTED_REVIEW`
+- `INCONCLUSIVE`, partial, and blocked outcomes
+- Clean/Benign case with zero supported findings
+- published GCS result unavailable or invalid, with retry and no Cloud-side local fallback
+- rapid case/candidate switching in which only the latest request owns the screen
 
-## Inputs
+## Structure and behavior
 
-- Mouse/touch selection of a candidate row.
-- Keyboard focus and activation for case select, `Reload result`, and source buttons.
+- Display exactly 20 frozen regression Incoming Artifact cases and their published v6 results. Never present them as unseen or preregistered performance evidence.
+- Show artifact type, title/subsystem when present, identifiers, and a bounded Incoming Artifact summary. Do not show mutation original/changed fields or Change Analyst output.
+- Show immutable Broad Top-40, expanded-pool, and Final Top-10 counts and fingerprints.
+- The Final Docket is the only horizontally scrolling region on narrow screens. It is named, focusable, and supports ArrowLeft/ArrowRight/Home/End scrolling.
+- Selecting a candidate displays only its supported atomic claims and exact evidence. Rejected or missing claim text/evidence remains hidden; only blocked count, stage, and verdict may appear.
+- Provenance distinguishes deterministic fixture evidence from a published run and shows experiment, run, commit, manifest, embedding index, and identifier index identities when available.
+- Loading and result failure clear stale candidate, evidence, counts, fingerprints, and provenance before a new selection can be interpreted as owning them.
+- `Reload result` remains a single-line control at 390 × 844. If it owned keyboard focus when the latest request began, focus returns when it is re-enabled.
+- Catalog failure changes Reload to `Retry catalog`; retry replaces options and handlers without duplication.
+- Live billable review remains at `/`. The evaluation route never invokes Vertex, edits a change, approves a change, or displays prompts.
 
-## Non-goals
+## Copy inventory
 
-No change editing, source mutation, reviewer approval, prompt display, or live Vertex call from the browser.
+| Text / region | Role | Default visibility | Decision |
+| --- | --- | --- | --- |
+| Frozen regression benchmark | identity/constraint | persistent | keep |
+| Fixture or published authority | identity | persistent | keep |
+| Broad / Expanded / Final scope | state | persistent | keep |
+| `NO_SUPPORTED_REVIEW` limitation | constraint | contextual | keep |
+| Partial / blocked summary | state/risk | contextual | keep |
+| Exact supported evidence and verifier verdict | decision data | contextual | keep |
+| Loading / API error / recovery text | state/recovery | contextual | keep |
+| Page-operating instructions | none | hidden | remove |
 
-## V2 repair scope
+## Acceptance
 
-- Preserve the Docket layout, candidate comparison, evidence gate, and fixture behavior.
-- Rename the saved-result control to `Published Cloud evaluation`.
-- Show published run ID and source-commit provenance in the existing environment/footer roles.
-- Do not add a Job execution control or persistent explanatory paragraph.
-
-## V3 loading-state repair
-
-- Initial Evidence desk state says `Loading review disposition…`; it does not instruct the user to run a case.
-- `Reload result` remains disabled until the initial result resolves.
-- Loaded, error, fixture, published, evidence, and responsive behavior remain unchanged.
-
-## V4 interaction-integrity repair
-
-- Only the latest case/source request may update result state, provenance, errors, or action availability; superseded requests are aborted and ignored.
-- `Reload result` remains a single-line control at 390 × 844 without creating body-wide overflow.
-- If keyboard focus owned Reload when it initiated the latest request, focus returns after the control is re-enabled. Case/source initiated loads retain their native control focus.
-
-## V5 active-contract extension
-
-work size: extension
-foundation: provisional 0.1
-
-### UI profile
-
-- Core goal: compare the fixed candidate set with the verified disposition for any of the 18 active v5 cases, then inspect exact evidence or the fail-closed reason.
-- Primary mode: monitor-analyze. Secondary mode: browse-compare.
-- Audience and consequence: engineering reviewer; dense evidence review; a mistaken visible recommendation is recoverable only by withholding it.
-- Viewports and input: 1440 × 900 and 390 × 844; mouse, touch, and keyboard.
-- Critical information: result source, active experiment/run provenance, case identity, changed source, original/changed content, final disposition, exact evidence, verifier outcome, blocked stage.
-- Stress states: initial loading, published unavailable/integrity failure, rapid case/source switching, no-review control, unsupported proposal, long source IDs and code spans.
-
-### Structure and behavior
-
-- The change strip adds a three-field comparison: changed source, original exact content, and changed content. It remains above the fixed candidate docket and does not become a separate card.
-- Fixture and published selection retain the same candidate comparison and evidence desk, but provenance must identify fixture data as non-experiment evidence and published data by experiment, run, commit, manifest, and embedding-index fingerprint when available.
-- Loading keeps Reload disabled. Recoverable API failure preserves source/case selection and exposes the existing retry action. Only the latest request may update the screen.
-- Loading and result failure clear the prior candidate, evidence, counts, seal, and provenance before the selected case/source identity can be interpreted as owning them.
-- Every `REJECTED_UNSUPPORTED` record, including duplicate-source and off-Top-K records, appears in the Fail-closed audit list with its source and blocked stage; selection never exposes its proposed evidence.
-- At narrow width, the change comparison collapses in information order; the candidate docket remains the only horizontally scrolling region and is a named focusable region with explicit ArrowLeft/ArrowRight/Home/End scrolling.
-- Visible compact candidate and index hashes retain their complete value through an accessible title/name.
-- Initial catalog failure shows the server detail and changes Reload into `Retry catalog`; retry replaces options and handlers without duplication.
-
-### Copy inventory
-
-| Text / region | Role | Default visibility | Why structure alone is insufficient | Decision |
-| --- | --- | --- | --- | --- |
-| Result-source option labels | identity | persistent | Fixture and published evidence have different authority. | keep |
-| Changed source / Original / Changed | identity / decision data | persistent | Exact mutation provenance is required for review. | keep |
-| Fixture non-evidence note | constraint | persistent in fixture | Prevents deterministic fixture output from being mistaken for measured LLM evidence. | keep |
-| Published provenance sequence | state / rationale | persistent in published | Run, manifest, commit, and index identity are not visible in the candidate table. | keep |
-| Loading / API error text | state / recovery | contextual | Disabled control alone does not explain availability or failure. | keep |
-| Page-operating instructions | none | hidden | Native controls and object labels already communicate the flow. | remove |
-
-### V5 acceptance
-
-- Technical: API/UI tests, Ruff, mypy, package build, and script parsing pass.
-- Render: desktop and narrow normal/loading/error/recovery/no-review/verified/blocked states are reviewed at normal scale.
-- Interaction: keyboard Reload focus restoration, candidate activation, table horizontal scrolling, touch-sized source controls, rapid case/source switching, all blocked-record selection, and catalog/result error recovery pass.
-- Explanation deletion: hide non-state helper prose; the task remains understandable from source/case controls, change comparison, docket, and evidence desk.
-- Governance: no Foundation or new global pattern change; this extension remains provisional.
+- Technical: API/UI tests, Ruff, mypy, package build, and five PowerShell scripts pass.
+- Render: desktop and narrow loading/error/recovery/review-required/no-supported/inconclusive/partial states are reviewed at normal scale.
+- Interaction: keyboard Reload restoration, candidate activation, table scrolling, rapid case/candidate switching, and error recovery pass.
+- Safety: no rejected or missing claim content/evidence appears in the UI, logs, or public Live response.
+- Governance: Foundation and this screen remain provisional until explicit user approval.

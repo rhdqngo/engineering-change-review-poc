@@ -12,7 +12,7 @@ class PromptBundle(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     version: str
-    change_analyst: str
+    change_analyst: str | None = None
     engineering_review: str
     evidence_verifier: str
 

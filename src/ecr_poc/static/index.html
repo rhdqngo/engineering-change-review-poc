@@ -1,82 +1,54 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Engineering Change Review PoC</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Live Engineering Review · NASA cFS</title>
+    <link rel="stylesheet" href="/static/styles.css?v=6" />
   </head>
   <body>
-    <div class="environment" id="environment">LOCAL DEMO · LOADING</div>
-    <header>
-      <div>
-        <p class="eyebrow">NASA cFS sample_app · frozen experiment</p>
-        <h1>Engineering Change Review Docket</h1>
-      </div>
-      <div class="case-nav">
-        <label for="source-select">Result source</label>
-        <select id="source-select" aria-label="Result source">
-          <option value="fixture" selected>Deterministic fixture</option>
-          <option value="published">Published Cloud evaluation</option>
-        </select>
-        <label for="case-select">Case</label>
-        <select id="case-select" aria-label="Frozen evaluation case"></select>
-        <button id="run-button" type="button" disabled>Reload result</button>
-      </div>
+    <header class="topbar">
+      <div><p class="eyebrow">NASA cFS · immutable engineering baseline</p><h1>Live engineering review</h1></div>
+      <a class="evaluation-link" href="/evaluation">Published evaluation</a>
     </header>
-    <section class="change-strip" aria-labelledby="change-title">
-      <div>
-        <p id="case-meta" class="eyebrow"></p>
-        <h2 id="change-title">Loading frozen case…</h2>
-        <p id="scenario"></p>
-        <dl class="change-delta" aria-label="Frozen change artifact comparison">
-          <div><dt>Changed source</dt><dd><code id="changed-source">—</code></dd></div>
-          <div><dt>Original</dt><dd><code id="original-content">—</code></dd></div>
-          <div><dt>Changed</dt><dd><code id="changed-content">—</code></dd></div>
-        </dl>
-      </div>
-      <dl class="summary">
-        <div><dt>Top-K</dt><dd id="top-k">—</dd></div>
-        <div><dt>Verified</dt><dd id="verified-count">—</dd></div>
-        <div><dt>Blocked</dt><dd id="blocked-count">—</dd></div>
-      </dl>
-    </section>
-    <div id="error" class="error" role="alert" hidden></div>
-    <main>
-      <section class="candidate-pane" aria-labelledby="candidate-title">
-        <div class="pane-heading">
-          <h2 id="candidate-title">Fixed candidate docket</h2>
-          <code id="fingerprint">candidate seal —</code>
-        </div>
-        <div class="table-wrap" tabindex="0" role="region" aria-label="Candidate disposition comparison; use arrow keys to scroll horizontally">
-          <table>
-            <thead><tr><th>Rank</th><th>Source</th><th>Hybrid</th><th>Baseline</th><th>Proposed</th></tr></thead>
-            <tbody id="candidate-rows"></tbody>
-          </table>
-        </div>
+    <main class="live-shell">
+      <section class="live-input" aria-labelledby="incoming-heading">
+        <div class="section-heading"><p class="eyebrow">Incoming artifact</p><h2 id="incoming-heading">Review a proposed engineering change</h2></div>
+        <form id="review-form" novalidate>
+          <label for="artifact-type">Artifact type</label>
+          <select id="artifact-type" name="artifact_type" required>
+            <option value="requirement">Requirement</option><option value="interface_change">Interface change</option>
+            <option value="design_change">Design change</option><option value="configuration_change">Configuration change</option>
+            <option value="verification_change">Verification change</option><option value="documentation_change">Documentation change</option>
+            <option value="other_engineering">Other engineering</option>
+          </select>
+          <label for="artifact-text">Artifact text</label>
+          <textarea id="artifact-text" name="text" maxlength="20000" required aria-describedby="text-count"></textarea>
+          <p id="text-count" class="field-meta">0 / 20,000</p>
+          <details class="optional-fields"><summary>Optional context</summary><div class="optional-grid">
+            <label for="artifact-title">Title</label><input id="artifact-title" name="title" maxlength="200" />
+            <label for="artifact-subsystem">Subsystem</label><input id="artifact-subsystem" name="subsystem" maxlength="120" />
+            <label for="artifact-identifiers">Identifiers <span>comma separated, up to 20</span></label><input id="artifact-identifiers" name="identifiers" />
+          </div></details>
+          <div class="form-actions"><button id="submit-review" type="submit">Run engineering review · uses Vertex AI</button><button id="new-review" type="button" class="secondary-button" hidden>New review</button></div>
+          <p id="form-error" class="error-summary" role="alert" tabindex="-1" hidden></p>
+        </form>
       </section>
-      <aside id="evidence-desk" aria-labelledby="evidence-title" aria-live="polite">
-        <p class="eyebrow">Evidence desk</p>
-        <h2 id="evidence-title">Select a candidate</h2>
-        <p id="reason" class="reason">Loading review disposition…</p>
-        <pre id="evidence">No evidence selected.</pre>
-        <dl class="checks">
-          <div><dt>Source in fixed Top-K</dt><dd id="check-source">—</dd></div>
-          <div><dt>Exact source span</dt><dd id="check-span">—</dd></div>
-          <div><dt>Independent verifier</dt><dd id="check-verifier">—</dd></div>
-        </dl>
-        <section class="blocked">
-          <h3>Fail-closed record</h3>
-          <p id="blocked-detail">No blocked output for this candidate.</p>
-          <h3>All withheld records</h3>
-          <ol id="blocked-records" class="blocked-records"><li>Loading records…</li></ol>
+      <section id="review-result" class="live-result" aria-labelledby="result-heading" hidden>
+        <div id="result-summary" class="result-summary" tabindex="-1"><p class="eyebrow">Review disposition</p><h2 id="result-heading">Result</h2><p id="result-copy"></p></div>
+        <dl class="retrieval-scope" aria-label="Deterministic retrieval scope"><div><dt>Baseline</dt><dd id="scope-baseline">—</dd></div><div><dt>Broad</dt><dd id="scope-broad">—</dd></div><div><dt>Expanded</dt><dd id="scope-expanded">—</dd></div><div><dt>Final</dt><dd id="scope-final">—</dd></div></dl>
+        <section aria-labelledby="candidate-heading"><div class="section-heading"><p class="eyebrow">Final Review Docket</p><h3 id="candidate-heading">Ordered Top-10 candidates</h3></div>
+          <div class="table-wrap" tabindex="0" role="region" aria-label="Horizontally scrollable Final Review Docket"><table><thead><tr><th>Rank</th><th>Artifact</th><th>Type</th><th>Final status</th><th>Final score</th></tr></thead><tbody id="candidate-rows"></tbody></table></div>
         </section>
-      </aside>
+        <section id="evidence-desk" class="evidence-desk" aria-labelledby="evidence-heading" aria-live="polite" tabindex="-1">
+          <div class="section-heading"><p class="eyebrow">Evidence desk</p><h3 id="evidence-heading">Select a candidate</h3></div>
+          <dl class="evidence-meta"><div><dt>Source</dt><dd id="evidence-source">—</dd></div><div><dt>Status</dt><dd id="evidence-status">—</dd></div><div><dt>Verifier</dt><dd id="evidence-verifier">—</dd></div><div><dt>Blocked</dt><dd id="evidence-blocked">—</dd></div><div><dt>Exact lines</dt><dd id="evidence-lines">—</dd></div></dl>
+          <ol id="claim-list" class="claim-list" hidden></ol>
+          <p id="evidence-reason"></p><pre id="evidence-span">No candidate selected.</pre>
+        </section>
+        <details class="provenance-panel"><summary>Run provenance</summary><dl id="provenance-list"></dl></details>
+      </section>
     </main>
-    <footer>
-      <span id="provenance-note">Fixture mode is deterministic UI/test data, never experiment evidence.</span>
-      <a href="/api/evaluation">Raw frozen evaluation JSON</a>
-    </footer>
-    <script src="/static/app.js" defer></script>
+    <script type="module" src="/static/live.js?v=6"></script>
   </body>
 </html>

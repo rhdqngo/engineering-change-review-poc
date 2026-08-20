@@ -14,9 +14,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$SourceCommit,
 
-    [string]$RunPrefix = "runs/v5",
+    [string]$RunPrefix = "runs/v6",
 
-    [string]$PublishedObject = "published/v5/demo.json",
+    [string]$PublishedObject = "published/v6/demo.json",
 
     [string]$Region = "asia-northeast3",
 
@@ -54,11 +54,11 @@ if ($experiment.freeze_tag -ne $FreezeTag) {
 }
 if (
     $RunPrefix -eq 'runs' -or
-    $RunPrefix -match '^runs/v[1-4](?:/|$)' -or
+    $RunPrefix -match '^runs/v[1-5](?:/|$)' -or
     $PublishedObject -eq 'published/demo.json' -or
-    $PublishedObject -match '^published/v[1-4](?:/|$)'
+    $PublishedObject -match '^published/v[1-5](?:/|$)'
 ) {
-    throw "Refusing to publish v5 into a historical v1-v4 GCS namespace."
+    throw "Refusing to publish v6 into a historical v1-v5 GCS namespace."
 }
 
 $projectNumber = gcloud projects describe $ProjectId --format "value(projectNumber)"

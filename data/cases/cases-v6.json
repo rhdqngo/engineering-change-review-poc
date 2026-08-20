@@ -1,0 +1,205 @@
+{
+  "schema_version": 3,
+  "experiment_id": "ecr-poc-regression-v6",
+  "frozen_at": "2026-08-20",
+  "top_k": 10,
+  "selection_policy": "Observed development cases are frozen as regression diagnostics; incoming artifacts, basis sources, atomic claim slots, and exact evidence are immutable after this freeze.",
+  "cases": [
+    {
+      "id": "DIR-01", "type": "direct", "scenario": "explicit_interface_conflict",
+      "change_text": "The SAMPLE_APP NOOP command function code shall be 4.",
+      "incoming_artifact": {"artifact_type": "interface_change", "title": "SAMPLE_APP NOOP function code", "subsystem": "SAMPLE_APP", "identifiers": ["SAMPLE_APP_FunctionCode_NOOP"], "text": "The SAMPLE_APP NOOP command function code shall be 4."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/config/default_sample_app_fcncode_values.h::document::L1-L44"],
+      "change": {"artifact_or_subsystem": "SAMPLE_APP command interface", "parameter": "NOOP function code", "old_value": null, "new_value": "4", "change_type": "incoming_value_requirement", "related_terms": ["NOOP", "function code", "command dispatch"]},
+      "expected_claims": [{"claim_slot_id": "DIR-01-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/config/default_sample_app_fcncode_values.h::document::L1-L44", "impact_type": "INTERFACE_IMPACT", "acceptable_exact_evidence_spans": ["SAMPLE_APP_FunctionCode_NOOP           = 0,"]}],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/config/default_sample_app_fcncode_values.h::document::L1-L44"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-sample_app::apps/sample_app/config/default_sample_app_fcncode_values.h::document::L1-L44", "spans": ["SAMPLE_APP_FunctionCode_NOOP           = 0,"]}]
+    },
+    {
+      "id": "DIR-02", "type": "direct", "scenario": "explicit_type_conflict",
+      "change_text": "DisplayParam ValU32 shall use an unsigned 64-bit representation.",
+      "incoming_artifact": {"artifact_type": "interface_change", "title": "DisplayParam ValU32 width", "subsystem": "SAMPLE_APP", "identifiers": ["ValU32"], "text": "DisplayParam ValU32 shall use an unsigned 64-bit representation."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/config/default_sample_app_msgdefs.h::document::L1-L48"],
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "ValU32 type", "old_value": null, "new_value": "uint64", "change_type": "incoming_type_requirement", "related_terms": ["DisplayParam", "ValU32", "payload", "message definition"]},
+      "expected_claims": [{"claim_slot_id": "DIR-02-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/config/default_sample_app_msgdefs.h::document::L1-L48", "impact_type": "INTERFACE_IMPACT", "acceptable_exact_evidence_spans": ["uint32 ValU32;"]}],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/config/default_sample_app_msgdefs.h::document::L1-L48"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-sample_app::apps/sample_app/config/default_sample_app_msgdefs.h::document::L1-L48", "spans": ["uint32 ValU32;"]}]
+    },
+    {
+      "id": "DIR-03", "type": "direct", "scenario": "explicit_range_conflict",
+      "change_text": "ExampleTable Int1 shall accept values through 20.",
+      "incoming_artifact": {"artifact_type": "requirement", "title": "ExampleTable Int1 range", "subsystem": "SAMPLE_APP", "identifiers": ["Int1"], "text": "ExampleTable Int1 shall accept values through 20."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_internal_cfg.h::document-p2::L32-L59"],
+      "change": {"artifact_or_subsystem": "ExampleTable", "parameter": "Int1 maximum", "old_value": null, "new_value": "20", "change_type": "incoming_range_requirement", "related_terms": ["table", "Int1", "maximum", "validation"]},
+      "expected_claims": [{"claim_slot_id": "DIR-03-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_internal_cfg.h::document-p2::L32-L59", "impact_type": "CONFIGURATION_IMPACT", "acceptable_exact_evidence_spans": ["#define DEFAULT_SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX 10"]}],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_internal_cfg.h::document-p2::L32-L59"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_internal_cfg.h::document-p2::L32-L59", "spans": ["#define DEFAULT_SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX 10"]}]
+    },
+    {
+      "id": "DIR-04", "type": "direct", "scenario": "explicit_capacity_conflict",
+      "change_text": "The Display Value string parameter shall support 24 characters.",
+      "incoming_artifact": {"artifact_type": "interface_change", "title": "Display Value capacity", "subsystem": "SAMPLE_APP", "identifiers": ["ValStr"], "text": "The Display Value string parameter shall support 24 characters."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_interface_cfg.h::document-p2::L34-L46"],
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "string parameter length", "old_value": null, "new_value": "24", "change_type": "incoming_capacity_requirement", "related_terms": ["Display Value", "string", "ValStr", "length"]},
+      "expected_claims": [{"claim_slot_id": "DIR-04-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_interface_cfg.h::document-p2::L34-L46", "impact_type": "INTERFACE_IMPACT", "acceptable_exact_evidence_spans": ["#define DEFAULT_SAMPLE_APP_MISSION_STRING_VAL_LEN 10"]}],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_interface_cfg.h::document-p2::L34-L46"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_interface_cfg.h::document-p2::L34-L46", "spans": ["#define DEFAULT_SAMPLE_APP_MISSION_STRING_VAL_LEN 10"]}]
+    },
+    {
+      "id": "DIR-05", "type": "direct", "scenario": "explicit_packet_limit_conflict",
+      "change_text": "Housekeeping combined telemetry packets shall support a maximum size of 2048 bytes.",
+      "incoming_artifact": {"artifact_type": "configuration_change", "title": "HK combined packet capacity", "subsystem": "HK", "identifiers": ["HK_MAX_COMBINED_PACKET_SIZE"], "text": "Housekeeping combined telemetry packets shall support a maximum size of 2048 bytes."},
+      "basis_source_ids": ["CFS::apps-hk::apps/hk/fsw/inc/hk_internal_cfg.h::document-p4::L126-L157"],
+      "change": {"artifact_or_subsystem": "HK packet assembly", "parameter": "maximum combined packet size", "old_value": null, "new_value": "2048 bytes", "change_type": "incoming_capacity_requirement", "related_terms": ["housekeeping", "combined packet", "maximum size", "telemetry"]},
+      "expected_claims": [{"claim_slot_id": "DIR-05-C1", "source_id": "CFS::apps-hk::apps/hk/fsw/inc/hk_internal_cfg.h::document-p4::L126-L157", "impact_type": "CONFIGURATION_IMPACT", "acceptable_exact_evidence_spans": ["#define DEFAULT_HK_INTERNAL_MAX_COMBINED_PACKET_SIZE 1500"]}],
+      "expected_review_targets": ["CFS::apps-hk::apps/hk/fsw/inc/hk_internal_cfg.h::document-p4::L126-L157"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-hk::apps/hk/fsw/inc/hk_internal_cfg.h::document-p4::L126-L157", "spans": ["#define DEFAULT_HK_INTERNAL_MAX_COMBINED_PACKET_SIZE 1500"]}]
+    },
+    {
+      "id": "SEM-01", "type": "semantic", "scenario": "semantic_behavior_conflict",
+      "change_text": "The reset operation shall clear only rejected-command history and preserve the accepted-command total.",
+      "incoming_artifact": {"artifact_type": "requirement", "title": "Selective command-history reset", "subsystem": "SAMPLE_APP", "identifiers": [], "text": "The reset operation shall clear only rejected-command history and preserve the accepted-command total."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_ResetCountersCmd::L98-L113"],
+      "change": {"artifact_or_subsystem": "command accounting", "parameter": "reset semantics", "old_value": null, "new_value": "clear rejected only", "change_type": "incoming_behavior_requirement", "related_terms": ["reset", "accepted commands", "rejected commands", "telemetry counters"]},
+      "expected_claims": [{"claim_slot_id": "SEM-01-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_ResetCountersCmd::L98-L113", "impact_type": "IMPLEMENTATION_IMPACT", "acceptable_exact_evidence_spans": ["SAMPLE_APP_Data.CommandCounter      = 0;"]}],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_ResetCountersCmd::L98-L113"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_ResetCountersCmd::L98-L113", "spans": ["SAMPLE_APP_Data.CommandCounter      = 0;"]}]
+    },
+    {
+      "id": "SEM-02", "type": "semantic", "scenario": "semantic_telemetry_conflict",
+      "change_text": "Housekeeping shall omit rejected-ground-command totals and retain only successful command activity.",
+      "incoming_artifact": {"artifact_type": "requirement", "title": "Housekeeping command activity", "subsystem": "SAMPLE_APP", "identifiers": [], "text": "Housekeeping shall omit rejected-ground-command totals and retain only successful command activity."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_SendHkCmd::L47-L78"],
+      "change": {"artifact_or_subsystem": "housekeeping telemetry", "parameter": "reported command totals", "old_value": null, "new_value": "accepted total only", "change_type": "incoming_field_requirement", "related_terms": ["housekeeping", "rejected command", "command error", "telemetry"]},
+      "expected_claims": [{"claim_slot_id": "SEM-02-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_SendHkCmd::L47-L78", "impact_type": "INTERFACE_IMPACT", "acceptable_exact_evidence_spans": ["SAMPLE_APP_Data.HkTlm.Payload.CommandErrorCounter = SAMPLE_APP_Data.CommandErrorCounter;"]}],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_SendHkCmd::L47-L78"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_SendHkCmd::L47-L78", "spans": ["SAMPLE_APP_Data.HkTlm.Payload.CommandErrorCounter = SAMPLE_APP_Data.CommandErrorCounter;"]}]
+    },
+    {
+      "id": "SEM-03", "type": "semantic", "scenario": "semantic_range_conflict",
+      "change_text": "The signed DisplayParam argument shall accept the full 32-bit signed range.",
+      "incoming_artifact": {"artifact_type": "interface_change", "title": "DisplayParam signed range", "subsystem": "SAMPLE_APP", "identifiers": ["ValI16"], "text": "The signed DisplayParam argument shall accept the full 32-bit signed range."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_DisplayParamCmd::L155-L166"],
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "signed argument range", "old_value": null, "new_value": "32-bit signed", "change_type": "incoming_type_requirement", "related_terms": ["signed parameter", "ValI16", "display event", "formatting"]},
+      "expected_claims": [{"claim_slot_id": "SEM-03-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_DisplayParamCmd::L155-L166", "impact_type": "IMPLEMENTATION_IMPACT", "acceptable_exact_evidence_spans": ["(int)Msg->Payload.ValI16,"]}],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_DisplayParamCmd::L155-L166"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_DisplayParamCmd::L155-L166", "spans": ["(int)Msg->Payload.ValI16,"]}]
+    },
+    {
+      "id": "SEM-04", "type": "semantic", "scenario": "semantic_side_effect_conflict",
+      "change_text": "A health-check invocation shall be observational and leave operational command totals unchanged.",
+      "incoming_artifact": {"artifact_type": "requirement", "title": "Observational health check", "subsystem": "SAMPLE_APP", "identifiers": ["NOOP"], "text": "A health-check invocation shall be observational and leave operational command totals unchanged."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_NoopCmd::L79-L97"],
+      "change": {"artifact_or_subsystem": "NOOP health check", "parameter": "counter side effect", "old_value": null, "new_value": "no counter side effect", "change_type": "incoming_behavior_requirement", "related_terms": ["NOOP", "health check", "command counter", "observational"]},
+      "expected_claims": [{"claim_slot_id": "SEM-04-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_NoopCmd::L79-L97", "impact_type": "IMPLEMENTATION_IMPACT", "acceptable_exact_evidence_spans": ["SAMPLE_APP_Data.CommandCounter++;"]}],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_NoopCmd::L79-L97"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_cmds.c::SAMPLE_APP_NoopCmd::L79-L97", "spans": ["SAMPLE_APP_Data.CommandCounter++;"]}]
+    },
+    {
+      "id": "SEM-05", "type": "semantic", "scenario": "semantic_capacity_relationship",
+      "change_text": "Combined housekeeping telemetry assembly shall never exceed its configured packet-capacity ceiling.",
+      "incoming_artifact": {"artifact_type": "requirement", "title": "HK assembly capacity ceiling", "subsystem": "HK", "identifiers": [], "text": "Combined housekeeping telemetry assembly shall never exceed its configured packet-capacity ceiling."},
+      "basis_source_ids": ["CFS::apps-hk::apps/hk/fsw/src/hk_utils.c::HK_ValidateHkCopyTable-p2::L144-L187"],
+      "change": {"artifact_or_subsystem": "HK packet assembly", "parameter": "configured capacity enforcement", "old_value": null, "new_value": "reject assembly beyond capacity", "change_type": "incoming_safety_requirement", "related_terms": ["housekeeping", "copy table", "packet overflow", "capacity ceiling"]},
+      "expected_claims": [{"claim_slot_id": "SEM-05-C1", "source_id": "CFS::apps-hk::apps/hk/fsw/src/hk_utils.c::HK_ValidateHkCopyTable-p2::L144-L187", "impact_type": "IMPLEMENTATION_IMPACT", "acceptable_exact_evidence_spans": ["if (EntryTail > HK_MAX_COMBINED_PACKET_SIZE)"]}],
+      "expected_review_targets": ["CFS::apps-hk::apps/hk/fsw/src/hk_utils.c::HK_ValidateHkCopyTable-p2::L144-L187"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-hk::apps/hk/fsw/src/hk_utils.c::HK_ValidateHkCopyTable-p2::L144-L187", "spans": ["if (EntryTail > HK_MAX_COMBINED_PACKET_SIZE)"]}]
+    },
+    {
+      "id": "XART-01", "type": "cross_artifact", "scenario": "test_impact",
+      "change_text": "ValStr shall support 32 characters and verification shall exercise the new maximum boundary.",
+      "incoming_artifact": {"artifact_type": "interface_change", "title": "ValStr capacity and verification", "subsystem": "SAMPLE_APP", "identifiers": ["ValStr"], "text": "ValStr shall support 32 characters and verification shall exercise the new maximum boundary."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_interface_cfg.h::document-p2::L34-L46"],
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "ValStr verified capacity", "old_value": null, "new_value": "32 characters including boundary verification", "change_type": "incoming_interface_and_verification_requirement", "related_terms": ["ValStr", "capacity", "boundary", "coverage test"]},
+      "expected_claims": [{"claim_slot_id": "XART-01-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/unit-test/coveragetest/coveragetest_sample_app_cmds.c::Test_SAMPLE_APP_DisplayParamCmd::L187-L212", "impact_type": "VERIFICATION_IMPACT", "acceptable_exact_evidence_spans": ["snprintf(TestMsg.Payload.ValStr, sizeof(TestMsg.Payload.ValStr), \"Hello\");"]}],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/unit-test/coveragetest/coveragetest_sample_app_cmds.c::Test_SAMPLE_APP_DisplayParamCmd::L187-L212"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-sample_app::apps/sample_app/unit-test/coveragetest/coveragetest_sample_app_cmds.c::Test_SAMPLE_APP_DisplayParamCmd::L187-L212", "spans": ["snprintf(TestMsg.Payload.ValStr, sizeof(TestMsg.Payload.ValStr), \"Hello\");"]}]
+    },
+    {
+      "id": "XART-02", "type": "cross_artifact", "scenario": "design_impact",
+      "change_text": "The application shall manage two ExampleTable instances instead of one.",
+      "incoming_artifact": {"artifact_type": "configuration_change", "title": "ExampleTable multiplicity", "subsystem": "SAMPLE_APP", "identifiers": ["ExampleTable"], "text": "The application shall manage two ExampleTable instances instead of one."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_internal_cfg.h::document-p2::L32-L59"],
+      "change": {"artifact_or_subsystem": "table management", "parameter": "ExampleTable instance count", "old_value": null, "new_value": "2", "change_type": "incoming_cardinality_requirement", "related_terms": ["two tables", "registration", "table handles", "initialization"]},
+      "expected_claims": [{"claim_slot_id": "XART-02-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app.c::SAMPLE_APP_Init-p2::L152-L200", "impact_type": "DESIGN_ASSUMPTION", "acceptable_exact_evidence_spans": ["status = CFE_TBL_Register(&SAMPLE_APP_Data.TblHandles[0],"]}],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app.c::SAMPLE_APP_Init-p2::L152-L200"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app.c::SAMPLE_APP_Init-p2::L152-L200", "spans": ["status = CFE_TBL_Register(&SAMPLE_APP_Data.TblHandles[0],"]}]
+    },
+    {
+      "id": "XART-03", "type": "cross_artifact", "scenario": "verification_impact",
+      "change_text": "ExampleTable shall reject Int2 values above 50 and include a boundary verification for that rule.",
+      "incoming_artifact": {"artifact_type": "requirement", "title": "ExampleTable Int2 validation", "subsystem": "SAMPLE_APP", "identifiers": ["Int2"], "text": "ExampleTable shall reject Int2 values above 50 and include a boundary verification for that rule."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/config/default_sample_app_tbldefs.h::document::L1-L39"],
+      "change": {"artifact_or_subsystem": "ExampleTable validation", "parameter": "Int2 acceptance rule", "old_value": null, "new_value": "Int2 <= 50 with test", "change_type": "incoming_validation_requirement", "related_terms": ["Int2", "table acceptance", "upper bound", "validation test"]},
+      "expected_claims": [
+        {"claim_slot_id": "XART-03-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_utils.c::SAMPLE_APP_TblValidationFunc::L37-L58", "impact_type": "IMPLEMENTATION_IMPACT", "acceptable_exact_evidence_spans": ["if (TblDataPtr->Int1 > SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX)"]},
+        {"claim_slot_id": "XART-03-C2", "source_id": "CFS::apps-sample_app::apps/sample_app/unit-test/coveragetest/coveragetest_sample_app_utils.c::Test_SAMPLE_APP_TblValidationFunc::L47-L64", "impact_type": "VERIFICATION_IMPACT", "acceptable_exact_evidence_spans": ["TestTblData.Int1 = 1 + SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX;"]}
+      ],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_utils.c::SAMPLE_APP_TblValidationFunc::L37-L58", "CFS::apps-sample_app::apps/sample_app/unit-test/coveragetest/coveragetest_sample_app_utils.c::Test_SAMPLE_APP_TblValidationFunc::L47-L64"],
+      "expected_evidence_by_target": [
+        {"source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app_utils.c::SAMPLE_APP_TblValidationFunc::L37-L58", "spans": ["if (TblDataPtr->Int1 > SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX)"]},
+        {"source_id": "CFS::apps-sample_app::apps/sample_app/unit-test/coveragetest/coveragetest_sample_app_utils.c::Test_SAMPLE_APP_TblValidationFunc::L47-L64", "spans": ["TestTblData.Int1 = 1 + SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX;"]}
+      ]
+    },
+    {
+      "id": "XART-04", "type": "cross_artifact", "scenario": "error_recovery",
+      "change_text": "A transient Software Bus receive failure shall be recoverable and the application shall continue its run loop.",
+      "incoming_artifact": {"artifact_type": "design_change", "title": "Recoverable Software Bus receive failure", "subsystem": "SAMPLE_APP", "identifiers": [], "text": "A transient Software Bus receive failure shall be recoverable and the application shall continue its run loop."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app.c::SAMPLE_APP_Main::L45-L108"],
+      "change": {"artifact_or_subsystem": "SAMPLE_APP run loop", "parameter": "receive-error recovery", "old_value": null, "new_value": "log and continue", "change_type": "incoming_error_handling_requirement", "related_terms": ["Software Bus", "receive failure", "run loop", "recovery"]},
+      "expected_claims": [{"claim_slot_id": "XART-04-C1", "source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app.c::SAMPLE_APP_Main::L45-L108", "impact_type": "DESIGN_ASSUMPTION", "acceptable_exact_evidence_spans": ["SAMPLE APP: SB Pipe Read Error, App Will Exit"]}],
+      "expected_review_targets": ["CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app.c::SAMPLE_APP_Main::L45-L108"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-sample_app::apps/sample_app/fsw/src/sample_app.c::SAMPLE_APP_Main::L45-L108", "spans": ["SAMPLE APP: SB Pipe Read Error, App Will Exit"]}]
+    },
+    {
+      "id": "XART-05", "type": "cross_artifact", "scenario": "verification_boundary_impact",
+      "change_text": "The HK maximum combined packet size shall increase to 2048 bytes and boundary verification shall cover the revised capacity.",
+      "incoming_artifact": {"artifact_type": "configuration_change", "title": "HK packet capacity verification", "subsystem": "HK", "identifiers": ["HK_MAX_COMBINED_PACKET_SIZE"], "text": "The HK maximum combined packet size shall increase to 2048 bytes and boundary verification shall cover the revised capacity."},
+      "basis_source_ids": ["CFS::apps-hk::apps/hk/fsw/inc/hk_internal_cfg.h::document-p4::L126-L157"],
+      "change": {"artifact_or_subsystem": "HK packet assembly", "parameter": "verified maximum packet size", "old_value": null, "new_value": "2048 bytes with boundary verification", "change_type": "incoming_configuration_and_verification_requirement", "related_terms": ["HK", "combined packet", "output offset", "boundary test"]},
+      "expected_claims": [{"claim_slot_id": "XART-05-C1", "source_id": "CFS::apps-hk::apps/hk/unit-test/hk_utils_tests.c::Test_HK_ValidateHkCopyTable_Error::L323-L361", "impact_type": "VERIFICATION_IMPACT", "acceptable_exact_evidence_spans": ["CopyTblPtr[1].OutputOffset = HK_MAX_COMBINED_PACKET_SIZE;"]}],
+      "expected_review_targets": ["CFS::apps-hk::apps/hk/unit-test/hk_utils_tests.c::Test_HK_ValidateHkCopyTable_Error::L323-L361"],
+      "expected_evidence_by_target": [{"source_id": "CFS::apps-hk::apps/hk/unit-test/hk_utils_tests.c::Test_HK_ValidateHkCopyTable_Error::L323-L361", "spans": ["CopyTblPtr[1].OutputOffset = HK_MAX_COMBINED_PACKET_SIZE;"]}]
+    },
+    {
+      "id": "CLN-01", "type": "clean", "scenario": "compatible_baseline_requirement",
+      "change_text": "The SAMPLE_APP NOOP command function code shall remain 0.",
+      "incoming_artifact": {"artifact_type": "requirement", "title": "NOOP baseline compatibility", "subsystem": "SAMPLE_APP", "identifiers": ["SAMPLE_APP_FunctionCode_NOOP"], "text": "The SAMPLE_APP NOOP command function code shall remain 0."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/config/default_sample_app_fcncode_values.h::document::L1-L44"],
+      "change": {"artifact_or_subsystem": "SAMPLE_APP command interface", "parameter": "NOOP function code", "old_value": null, "new_value": "0", "change_type": "compatible_requirement", "related_terms": ["NOOP", "function code", "baseline"]},
+      "expected_claims": [], "expected_review_targets": [], "expected_evidence_by_target": []
+    },
+    {
+      "id": "CLN-02", "type": "clean", "scenario": "compatible_baseline_requirement",
+      "change_text": "The SAMPLE_APP command pipe depth shall remain 32 entries.",
+      "incoming_artifact": {"artifact_type": "requirement", "title": "Command pipe baseline compatibility", "subsystem": "SAMPLE_APP", "identifiers": [], "text": "The SAMPLE_APP command pipe depth shall remain 32 entries."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_internal_cfg.h::document-p2::L32-L59"],
+      "change": {"artifact_or_subsystem": "command pipe", "parameter": "depth", "old_value": null, "new_value": "32", "change_type": "compatible_requirement", "related_terms": ["pipe depth", "baseline"]},
+      "expected_claims": [], "expected_review_targets": [], "expected_evidence_by_target": []
+    },
+    {
+      "id": "BEN-01", "type": "benign", "scenario": "representation_only",
+      "change_text": "ValU32 is an unsigned 32-bit integer; storage width and range are unchanged.",
+      "incoming_artifact": {"artifact_type": "documentation_change", "title": "ValU32 terminology", "subsystem": "SAMPLE_APP", "identifiers": ["ValU32"], "text": "ValU32 is an unsigned 32-bit integer; storage width and range are unchanged."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/config/default_sample_app_msgdefs.h::document::L1-L48"],
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "ValU32 wording", "old_value": null, "new_value": "unsigned 32-bit integer", "change_type": "representation_only", "related_terms": ["ValU32", "uint32", "wording"]},
+      "expected_claims": [], "expected_review_targets": [], "expected_evidence_by_target": []
+    },
+    {
+      "id": "BEN-02", "type": "benign", "scenario": "equivalent_expression",
+      "change_text": "The Display Value string length is 5 * 2 characters, equivalent to the current capacity of 10.",
+      "incoming_artifact": {"artifact_type": "configuration_change", "title": "Equivalent string capacity expression", "subsystem": "SAMPLE_APP", "identifiers": ["ValStr"], "text": "The Display Value string length is 5 * 2 characters, equivalent to the current capacity of 10."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_interface_cfg.h::document-p2::L34-L46"],
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "string length expression", "old_value": null, "new_value": "5 * 2", "change_type": "equivalent_expression", "related_terms": ["string length", "equivalent", "capacity"]},
+      "expected_claims": [], "expected_review_targets": [], "expected_evidence_by_target": []
+    },
+    {
+      "id": "BEN-03", "type": "benign", "scenario": "equivalent_expression",
+      "change_text": "The ExampleTable Int1 maximum is 0x0A, numerically equivalent to decimal 10.",
+      "incoming_artifact": {"artifact_type": "configuration_change", "title": "Equivalent Int1 limit expression", "subsystem": "SAMPLE_APP", "identifiers": ["Int1"], "text": "The ExampleTable Int1 maximum is 0x0A, numerically equivalent to decimal 10."},
+      "basis_source_ids": ["CFS::apps-sample_app::apps/sample_app/fsw/inc/sample_app_internal_cfg.h::document-p2::L32-L59"],
+      "change": {"artifact_or_subsystem": "ExampleTable", "parameter": "Int1 maximum representation", "old_value": null, "new_value": "0x0A", "change_type": "equivalent_expression", "related_terms": ["Int1", "maximum", "hexadecimal", "equivalent"]},
+      "expected_claims": [], "expected_review_targets": [], "expected_evidence_by_target": []
+    }
+  ]
+}

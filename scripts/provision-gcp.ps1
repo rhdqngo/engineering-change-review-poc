@@ -13,7 +13,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$SourceCommit,
 
-    [string]$InputPrefix = "frozen/ecr-poc-v5",
+    [string]$InputPrefix = "frozen/ecr-poc-v6",
+
+    [string]$FrozenDataRoot = ".cache/v6-freeze",
 
     [switch]$ApproveBillableResources
 )
@@ -47,8 +49,8 @@ $experiment = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($experiment.freeze_tag -ne $FreezeTag) {
     throw "Experiment manifest freeze tag does not match -FreezeTag."
 }
-if ($InputPrefix -match '^frozen/ecr-poc-v[1-4](?:/|$)') {
-    throw "Refusing to write v5 inputs into a historical v1-v4 GCS prefix."
+if ($InputPrefix -match '^frozen/ecr-poc-v[1-5](?:/|$)') {
+    throw "Refusing to write v6 inputs into a historical v1-v5 GCS prefix."
 }
 
 $projectNumber = gcloud projects describe $ProjectId --format "value(projectNumber)"
@@ -136,6 +138,16 @@ if ($LASTEXITCODE -ne 0) {
     throw "Job Vertex AI grant failed."
 }
 
+gcloud projects add-iam-policy-binding $ProjectId `
+    --member "serviceAccount:$webServiceAccount" `
+    --role "roles/aiplatform.user" `
+    --condition None `
+    --format none `
+    --quiet
+if ($LASTEXITCODE -ne 0) {
+    throw "Web Vertex AI grant failed."
+}
+
 $deployerAccount = gcloud config get-value account 2>$null
 if ([string]::IsNullOrWhiteSpace($deployerAccount)) {
     throw "Unable to determine the active deployer account."
@@ -153,7 +165,22 @@ foreach ($runtimeAccount in @($webServiceAccount, $jobServiceAccount)) {
 }
 
 $env:UV_CACHE_DIR = ".cache\uv"
-uv run ecr-poc upload-freeze --bucket $bucketName --prefix $InputPrefix
+$resolvedFrozenDataRoot = (Resolve-Path -LiteralPath $FrozenDataRoot).Path
+$stagedManifestPath = Join-Path $resolvedFrozenDataRoot "data/experiments/$ExperimentManifest"
+if (-not (Test-Path -LiteralPath $stagedManifestPath)) {
+    throw "Frozen data root does not contain the requested experiment manifest."
+}
+$trackedManifestHash = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash
+$stagedManifestHash = (Get-FileHash -LiteralPath $stagedManifestPath -Algorithm SHA256).Hash
+if ($trackedManifestHash -ne $stagedManifestHash) {
+    throw "Frozen data root manifest does not match the tracked freeze manifest."
+}
+$env:ECR_DATA_ROOT = $resolvedFrozenDataRoot
+uv run ecr-poc validate-data
+if ($LASTEXITCODE -ne 0) {
+    throw "Frozen v6 data integrity validation failed."
+}
+uv run ecr-poc upload-freeze --bucket $bucketName --prefix $InputPrefix --root $FrozenDataRoot
 if ($LASTEXITCODE -ne 0) {
     throw "Immutable experiment input upload failed."
 }
