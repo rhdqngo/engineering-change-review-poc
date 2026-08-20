@@ -1,0 +1,18 @@
+{
+  "experiment_id": "ecr-poc-preregistered-v1",
+  "frozen_at": "2026-08-20T00:00:00+09:00",
+  "results_observed_before_freeze": false,
+  "files": {
+    "data/cases/cases.json": "83616f013a2ccf32beeb4e197e5aa57430229f0fb92506a64082043c80c6faa2",
+    "data/nasa/artifacts.json": "5c326e89079f587c06de48588742b6828ccd7ea8f0b646178eeab774dc1c43b8",
+    "data/nasa/provenance.json": "eadb2aeb4c194db3e38ea08c600ddac2d9fb59bda6f21772523dfda7d5535fc7"
+  },
+  "case_counts": {
+    "direct": 4,
+    "semantic": 4,
+    "cross_artifact": 4,
+    "clean": 3,
+    "benign": 3
+  },
+  "top_k": 6
+}

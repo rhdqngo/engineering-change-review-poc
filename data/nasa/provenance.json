@@ -1,0 +1,29 @@
+{
+  "subset_id": "nasa-sample-app-v7.0.1",
+  "upstream": "https://github.com/nasa/sample_app",
+  "release_tag": "v7.0.1",
+  "commit": "2f93d1a4159a02b18d67ee83342c9e96b90e23e4",
+  "retrieved_at": "2026-08-20",
+  "license": "Apache-2.0",
+  "source_root": "data/nasa/sample_app_v7.0.1",
+  "files": [
+    {"path":"CHANGELOG.md","sha256":"b8b08241e282d9100b3ba3b925b60d2877b7924557a655b80286ad960f4094f9","bytes":9302},
+    {"path":"config/default_sample_app_fcncode_values.h","sha256":"d434438802c6c25d612d82dbd825f33c8c8a40f0bba5866c2f1fd5728874dd14","bytes":1851},
+    {"path":"config/default_sample_app_msgdefs.h","sha256":"51f7d50cf53a481cffd447b0b8f282bfa363cb6d1e321b30d721e2c4d611013a","bytes":1849},
+    {"path":"config/default_sample_app_tbldefs.h","sha256":"f4105bc5994972a7fc38d47f5075c5908b6a358f6f4a821921eb5318f524c6d0","bytes":1306},
+    {"path":"eds/sample_app.xml","sha256":"b4aefd140cdb481695c11d2d200705f4645c1e858b27cd0d94fc7f99523b94e6","bytes":6422},
+    {"path":"fsw/inc/sample_app_interface_cfg.h","sha256":"79888269958857a133bdcf23600872360552ba8949ce2d2f0803f9ae9fb8f661","bytes":1894},
+    {"path":"fsw/inc/sample_app_internal_cfg.h","sha256":"10e7bcd23b21621a284ef42e00e53e6a32c9dcf15ce77d74d931741e3493e9b6","bytes":2775},
+    {"path":"fsw/inc/sample_app_topicids.h","sha256":"cc027f4692bb0971407dbb0a72f6ec28d97e9365feb28b0a02273dc5c4baff8b","bytes":1548},
+    {"path":"fsw/src/sample_app_cmds.c","sha256":"d923fed437f230e2fbb8b74013c64ff6dfa0229a96d726f09d18685433cb83a2","bytes":7090},
+    {"path":"fsw/src/sample_app_dispatch.c","sha256":"e7458fb07a3aeb870995053a923611df8411f386caba4afd2e921299bf41aaef","bytes":6555},
+    {"path":"fsw/src/sample_app_utils.c","sha256":"7412e8c232217957d2fe88539d23bb6802d68ed5931bc4a104e0ebf07d374737","bytes":2892},
+    {"path":"fsw/src/sample_app.c","sha256":"25d000b5a3e5c80fe35062e813dad785909228fd7059fb8322a8b72718e7a5a9","bytes":7839},
+    {"path":"LICENSE","sha256":"1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6","bytes":11558},
+    {"path":"README.md","sha256":"ef422daaa6b7f86db741c78b941c162426113f96814d84d473a8b5b300385140","bytes":1370},
+    {"path":"unit-test/coveragetest/coveragetest_sample_app_cmds.c","sha256":"d0d17c310ff79c4f27e39e9f39f9982cd669a60414b768349e8496b40ecb847b","bytes":7577},
+    {"path":"unit-test/coveragetest/coveragetest_sample_app_dispatch.c","sha256":"2f79e97b76cdda84657d455e075ff77e3bdc1e2ea5a7b0ce4df564fc31555a4e","bytes":10553},
+    {"path":"unit-test/coveragetest/coveragetest_sample_app_utils.c","sha256":"6ed625705196bb9b05575fb02a0ed506b54a9f4f9a02ecc45e175dffea7ed3e3","bytes":3350},
+    {"path":"unit-test/coveragetest/coveragetest_sample_app.c","sha256":"cf9dc7388a3529fd74011335ae8535214fc63cbe20ab28da853b9cc2e25b2387","bytes":6773}
+  ]
+}
