@@ -21,7 +21,7 @@
         </select>
         <label for="case-select">Case</label>
         <select id="case-select" aria-label="Frozen evaluation case"></select>
-        <button id="run-button" type="button">Run case</button>
+        <button id="run-button" type="button" disabled>Reload result</button>
       </div>
     </header>
     <section class="change-strip" aria-labelledby="change-title">
@@ -50,7 +50,7 @@
           </table>
         </div>
       </section>
-      <aside aria-labelledby="evidence-title">
+      <aside id="evidence-desk" aria-labelledby="evidence-title" aria-live="polite">
         <p class="eyebrow">Evidence desk</p>
         <h2 id="evidence-title">Select a candidate</h2>
         <p id="reason" class="reason">Run a case to inspect its review disposition.</p>

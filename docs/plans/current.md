@@ -27,8 +27,8 @@ updated: 2026-08-20
 | Validation | complete | Data, lint, type, 13 tests, package build, health, fixture and actual raw artifacts, exact-span audit, and rendered browser evidence pass. |
 | GCP deployment and verification | complete | After exact approval, a dedicated `roles/run.builder` identity built private revision `ecr-poc-00002-v9g`; authenticated health/catalog, actual browser flows, fail-closed rejection, unauthenticated 403, and Cloud Logging passed. |
 | V2 local implementation | complete | Versioned role prompt/experiment hashes, GCS-authoritative prompt injection, run provenance, role timeouts, reviewer reconciliation, checkpoint-sealed publication gate, dedicated-identity scripts, published-result API/UI, 27 tests, lint, type, data validation, script parsing, and package build pass. |
-| V2 remote freeze | second corrective update in progress | Freeze `1eb0fa6` completed provisioning and the first v2 deployment without any model execution. Pre-run inspection found PowerShell Job-argument serialization and Job JSON verification-path defects; their fixes must become the new freeze commit before redeployment. |
-| V2 GCP batch and publication | in progress | Hardened bucket, dedicated identities, IAM, 24 frozen objects, historical pointer, private web revision `ecr-poc-00003-wn5`, and the first Job definition exist. The Job has not executed; corrected same-digest redeployment is next. |
+| V2 remote freeze | third corrective update in progress | Freeze `2fa9d42` produced a valid 18-case run, but independent browser audit found that the published run ID was ambiguously truncated and v2 was mislabeled as `legacy freeze`. UI provenance/loading/touch/accessibility corrections must become a new pre-rerun freeze. |
+| V2 GCP batch and publication | corrective rerun pending | Run `cloud-v2-20260820T032620Z-bc550a11` completed and was published with valid storage, IAM, logs, and pipeline evidence. It remains immutable, but UI acceptance failed; a corrected freeze, same-digest redeployment, new run, validation, and pointer update are required for final completion. |
 
 ## Completed major results
 
@@ -68,11 +68,11 @@ updated: 2026-08-20
 ## Blockers and decisions needed
 
 - All remaining freeze, provisioning, deployment, billable execution, publication, verification, evidence-commit, and push phases were explicitly approved on 2026-08-20.
-- No v2 model result exists yet; redeployment must not resume until the second corrective commit, `origin/main`, and freeze tag agree.
+- The first v2 run is technically valid but is not the final accepted run because deployed provenance UI failed independent review. No completion blocker remains after the corrective UI code is frozen remotely.
 
 ## Next checkpoint
 
-- Commit and publish the validated Job args/verification correction, move the freeze tag, then redeploy the service and Job from the new identical digest.
+- Validate the UI correction, commit and push it, move `ecr-poc-v2-freeze` to that pre-rerun commit, then redeploy service/Job from one digest and execute a new 18-case run.
 
 ## Related artifacts
 

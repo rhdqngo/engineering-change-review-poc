@@ -5,6 +5,10 @@ function humanStatus(value) {
   return value.replaceAll("_", " ");
 }
 
+function compactRunId(runId) {
+  return runId.startsWith("cloud-v2-") ? runId.slice("cloud-v2-".length) : runId;
+}
+
 function resultFor(sourceId) {
   return state.result.final_reviews.find((item) => item.source_id === sourceId) || null;
 }
@@ -13,7 +17,9 @@ function selectCandidate(sourceId) {
   const candidate = state.result.candidates.find((item) => item.source_id === sourceId);
   const review = resultFor(sourceId);
   document.querySelectorAll("tbody tr").forEach((row) => {
-    row.dataset.active = String(row.dataset.sourceId === sourceId);
+    const selected = row.dataset.sourceId === sourceId;
+    row.dataset.active = String(selected);
+    row.querySelector("button").setAttribute("aria-pressed", String(selected));
   });
   $("#evidence-title").textContent = candidate.source_id;
   $("#reason").textContent = review?.short_reason || "No review decision returned for this candidate.";
@@ -32,17 +38,19 @@ function renderResult(sourceLabel) {
   const result = state.result;
   const isFixture = result.provider === "fixture-not-llm";
   const publishedRunId = state.resultMetadata?.published_run_id || result.run_id;
-  const shortRun = publishedRunId ? publishedRunId.slice(0, 12) : "unknown run";
+  const displayRun = publishedRunId ? compactRunId(publishedRunId) : "unknown run";
   const sourceCommit = state.resultMetadata?.source_commit || result.provenance?.source_commit;
   const shortCommit = sourceCommit ? sourceCommit.slice(0, 8) : null;
+  const freezeVersion = state.resultMetadata?.freeze_version || result.experiment_id || "legacy freeze";
   $("#environment").textContent = sourceLabel === "saved-evaluation" && !isFixture
     ? `SAVED EVALUATION · ${result.provider} · ${result.model}`
     : sourceLabel === "published-evaluation" && !isFixture
-      ? `PUBLISHED CLOUD EVALUATION · ${result.provider} · ${result.model} · ${shortRun}${shortCommit ? ` · ${shortCommit}` : ""}`
+      ? `PUBLISHED CLOUD EVALUATION · ${result.provider} · ${result.model} · ${displayRun}${shortCommit ? ` · ${shortCommit}` : ""}`
     : "DETERMINISTIC FIXTURE · NOT LLM EXPERIMENT EVIDENCE";
+  $("#environment").title = !isFixture && publishedRunId ? `Published run ${publishedRunId}` : "";
   $("#provenance-note").textContent = isFixture
     ? "Fixture mode is deterministic UI/test data, never experiment evidence."
-    : `Published experiment · ${result.experiment_id || "legacy freeze"} · run ${shortRun}${shortCommit ? ` · commit ${shortCommit}` : ""}`;
+    : `Published experiment · ${freezeVersion} · run ${publishedRunId || "unknown run"}${shortCommit ? ` · commit ${shortCommit}` : ""}`;
   $("#fingerprint").textContent = `candidate seal ${result.candidate_fingerprint.slice(0, 12)}…`;
   $("#top-k").textContent = result.candidates.length;
   const verified = result.final_reviews.filter((item) => item.status === "VERIFIED_REVIEW").length;
@@ -64,7 +72,10 @@ function renderResult(sourceLabel) {
       <td><span class="status ${status === "VERIFIED_REVIEW" ? "verified" : status === "REJECTED_UNSUPPORTED" ? "rejected" : ""}">${humanStatus(status)}</span></td>`;
     tr.querySelector(".source-id").textContent = candidate.source_id;
     tr.querySelector(".source-title").textContent = candidate.title;
-    tr.querySelector("button").addEventListener("click", () => selectCandidate(candidate.source_id));
+    const sourceButton = tr.querySelector("button");
+    sourceButton.setAttribute("aria-controls", "evidence-desk");
+    sourceButton.setAttribute("aria-pressed", "false");
+    sourceButton.addEventListener("click", () => selectCandidate(candidate.source_id));
     rows.append(tr);
   });
   const preferred = result.final_reviews.find((item) => item.status === "VERIFIED_REVIEW")

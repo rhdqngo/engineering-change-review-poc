@@ -7,7 +7,7 @@ updated: 2026-08-20
 
 ## V2 completion status
 
-The original v1 service history remains below. V2 provisioning and an initial private service/Job deployment now exist as described in the corrective attempts, but no v2 model execution or publication has occurred. Final execution ID, image digest, GCS generations/hashes, logs, and browser validation will be appended after completion.
+The original v1 service history remains below. V2 provisioning, same-digest service/Job deployment, and a valid first 18-case execution/publication completed. Independent browser audit rejected the deployed provenance presentation because the run ID was ambiguously truncated and the footer called v2 a legacy freeze. The immutable run remains in GCS; a corrected remote freeze and full rerun will establish the final accepted result.
 
 The first approved v2 provisioning attempt created `ecr-poc-912838451352-asia-northeast3` with uniform bucket-level access, then stopped before service-account, IAM, or upload steps. The installed gcloud release rejected value-form PAP/versioning flags; the script was corrected to the supported boolean flags and must be re-frozen before the idempotent retry. No v2 model call occurred.
 

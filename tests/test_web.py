@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from ecr_poc import web
@@ -59,3 +61,22 @@ def test_published_alias_and_gcs_failure_are_fail_closed(monkeypatch) -> None:
     assert response.status_code == 503
     assert "simulated GCS denial" in response.json()["detail"]
     assert client.get("/health").status_code == 503
+
+
+def test_published_ui_preserves_provenance_and_accessible_selection() -> None:
+    static_root = Path(__file__).parents[1] / "src" / "ecr_poc" / "static"
+    script = (static_root / "app.js").read_text(encoding="utf-8")
+    markup = (static_root / "index.html").read_text(encoding="utf-8")
+    styles = (static_root / "styles.css").read_text(encoding="utf-8")
+
+    assert 'state.resultMetadata?.freeze_version' in script
+    assert 'compactRunId(publishedRunId)' in script
+    assert 'publishedRunId || "unknown run"' in script
+    assert '!isFixture && publishedRunId ? `Published run ${publishedRunId}`' in script
+    assert 'setAttribute("aria-pressed"' in script
+    assert 'setAttribute("aria-controls", "evidence-desk")' in script
+    assert '<button id="run-button" type="button" disabled>Reload result</button>' in markup
+    assert 'id="evidence-desk"' in markup
+    assert 'aria-live="polite"' in markup
+    assert '.source-button { width: 100%; padding: 4px 0; min-height: 38px;' in styles
+    assert 'tbody tr { cursor: pointer; }' not in styles
