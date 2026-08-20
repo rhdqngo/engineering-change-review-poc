@@ -137,6 +137,10 @@ def _parser() -> argparse.ArgumentParser:
         "stage-v6-inputs", help="stage tracked v6 cases, prompt, and manifest into a data root"
     )
     stage.add_argument("--output-root", type=Path, required=True)
+    stage.add_argument(
+        "--experiment-manifest",
+        default=DEFAULT_EXPERIMENT_MANIFEST,
+    )
     index = subcommands.add_parser(
         "build-index", help="create an immutable row-major document embedding index"
     )
@@ -166,11 +170,13 @@ def main() -> None:
         return
     if args.command == "stage-v6-inputs":
         root = Path.cwd()
+        if Path(args.experiment_manifest).name != args.experiment_manifest:
+            raise ValueError("Experiment manifest must be a file name")
         staged: list[str] = []
         for relative in (
             "data/cases/cases-v6.json",
             "data/prompts/ecr-poc-v6.json",
-            "data/experiments/ecr-poc-v6.json",
+            f"data/experiments/{args.experiment_manifest}",
             "docs/plans/LLM 기반 우주 Engineering Change Review.md",
         ):
             source = root / relative

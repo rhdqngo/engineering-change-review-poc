@@ -1,6 +1,6 @@
 # V6 Purpose-driven Engineering Impact Review Protocol
 
-status: pre-freeze local functional gate  
+status: initial frozen run retained; reliability revision payload sealed
 project: `iceu-687`  
 region: `asia-northeast3`
 
@@ -63,8 +63,22 @@ Metrics are reported overall and by case type: Broad Hit@40, relation expansion 
 
 1. Completed: approved `gemini-embedding-001` document generation, 768-dimensional index validation, and byte-identical cache-only rebuild.
 2. Completed: separately approved five-object immutable GCS upload, byte-identical existing-object verification, and generation/SHA manifest seal.
-3. Completed locally: full freeze gate and implementation commit/tag without moving the design tag.
-4. Separately approve push, private Cloud Run/Job deployment, the 20-case Vertex Job, and publish.
-5. Publish only after 20 terminal cases, provenance/index seals, metrics, fail-closed checks, logs, IAM, and browser behavior validate.
+3. Completed: design/implementation commits and immutable tags were pushed without moving either tag; the private service and single-task Job were deployed with one shared image digest.
+4. Completed but not publishable: the approved 20-case execution reached 20/20 terminal cases, then strict validation rejected five truncated Reviewer JSON role outputs. The immutable result/checkpoint are retained and `published/v6/demo.json` was not created.
+5. Current sealed revision: `ecr-poc-regression-v6-r1` changes only structured-generation execution reliability: the model-supported output ceiling, production ADK event consumption, and explicit natural-stop enforcement. Corpus, cases, query, retrieval, prompts, verifier criteria, and indexes are unchanged. Exactly five immutable payloads were created under `frozen/ecr-poc-v6-r1`; a second pass verified all five without creating a generation.
+6. Separately approve the revision commit/tag/push and deployment. A replacement 20-case Job and publication each remain later explicit approval gates.
+7. Publish only after 20 terminal cases, zero role errors, provenance/index seals, metrics, fail-closed checks, logs, IAM, and browser behavior validate.
 
 Failures and checkpoints remain immutable under a new run ID. V1-v5 tags, results, GCS generations, and published pointers are never changed.
+
+## Initial frozen execution retained as failed-for-publication evidence
+
+- Implementation: `429cfe7e588b08ac15a44d3bf6d53aaa30d98d78`, tag `ecr-poc-v6-freeze`
+- Cloud Run revision: `ecr-poc-00009-ghj`
+- Image digest: `sha256:cb7019f9a73bfa265db83a99a05b5aebd48c7bcdf2c8993c02f60f4fb43813c3`
+- Execution/run: `ecr-poc-evaluate-52k2q` / `cloud-v6-20260820T135205Z-b5710860`
+- Result generation/SHA-256: `1787234680256260` / `4cebd0b2a6962041cb02fc726b1a1fb10443a14d7b675a02b0bee978a0d18527`
+- Terminal checkpoint generation: `1787234680344112`
+- Strict result: 20/20 terminal, but Reviewer JSON EOF role errors in DIR-02, DIR-03, XART-01, XART-03, and XART-04; not published and not automatically rerun
+
+An in-memory diagnostic that removed only the role-error flags allowed every other strict validation to pass. This isolates the blocker to structured Reviewer generation; it does not alter or repair the immutable stored result.

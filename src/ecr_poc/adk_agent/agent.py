@@ -9,7 +9,7 @@ from ecr_poc.models import CandidateDecisionBatch, ClaimVerificationBatch
 from ecr_poc.prompts import PromptBundle, load_prompt_bundle
 
 MODEL = os.environ.get("ECR_LLM_MODEL", "gemini-3.5-flash")
-GENERATION = types.GenerateContentConfig(temperature=0, max_output_tokens=8192)
+GENERATION = types.GenerateContentConfig(temperature=0, max_output_tokens=65_536)
 
 
 def make_engineering_reviewer(prompts: PromptBundle | None = None) -> LlmAgent:

@@ -4,10 +4,12 @@ import json
 import os
 import uuid
 from collections.abc import Sequence
+from contextlib import aclosing
 from typing import Protocol, TypeVar
 
 from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
+from google.genai import types
 from pydantic import BaseModel
 
 from .adk_agent.agent import MODEL, make_engineering_reviewer, make_evidence_verifier
@@ -59,25 +61,47 @@ class AdkVertexProvider:
 
     async def _run(self, agent: LlmAgent, prompt: str, schema: type[T]) -> tuple[T, str]:
         runner = InMemoryRunner(agent=agent, app_name=f"ecr_poc_{agent.name}")
-        events = await runner.run_debug(
-            prompt,
+        session = await runner.session_service.create_session(
+            app_name=runner.app_name,
             user_id="evaluation",
             session_id=str(uuid.uuid4()),
-            quiet=True,
         )
         outputs: list[str | dict[str, object] | list[object]] = []
-        for event in events:
-            if event.author != agent.name:
-                continue
-            if isinstance(event.output, (str, dict, list)):
-                outputs.append(event.output)
-            if event.content:
-                for part in event.content.parts or []:
-                    if part.text and not part.thought:
-                        outputs.append(part.text)
-        if not outputs:
-            raise RuntimeError(f"ADK role {agent.name} returned no structured output")
-        value = outputs[-1]
+        async with aclosing(
+            runner.run_async(
+                user_id="evaluation",
+                session_id=session.id,
+                new_message=types.UserContent(parts=[types.Part(text=prompt)]),
+            )
+        ) as events:
+            async for event in events:
+                if event.author != agent.name or not event.is_final_response():
+                    continue
+                if event.finish_reason != types.FinishReason.STOP:
+                    reason = (
+                        event.finish_reason.value
+                        if event.finish_reason is not None
+                        else "MISSING"
+                    )
+                    raise RuntimeError(
+                        f"ADK role {agent.name} stopped before completion: {reason}"
+                    )
+                if isinstance(event.output, (str, dict, list)):
+                    outputs.append(event.output)
+                    continue
+                if event.content:
+                    text = "".join(
+                        part.text
+                        for part in event.content.parts or []
+                        if part.text and not part.thought
+                    )
+                    if text:
+                        outputs.append(text)
+        if len(outputs) != 1:
+            raise RuntimeError(
+                f"ADK role {agent.name} returned {len(outputs)} final structured outputs"
+            )
+        value = outputs[0]
         if isinstance(value, str):
             return schema.model_validate_json(value), value
         raw = json.dumps(value, ensure_ascii=False)

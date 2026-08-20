@@ -5,6 +5,14 @@ region: `asia-northeast3`
 service: `ecr-poc`  
 updated: 2026-08-20
 
+## V6 initial execution and publication block
+
+Purpose-driven v6 was frozen at `429cfe7e588b08ac15a44d3bf6d53aaa30d98d78` with immutable tag `ecr-poc-v6-freeze`. Private revision `ecr-poc-00009-ghj` and Job `ecr-poc-evaluate` use the same image digest `sha256:cb7019f9a73bfa265db83a99a05b5aebd48c7bcdf2c8993c02f60f4fb43813c3`. The service retains max instances 1, concurrency 1, and timeout 300 seconds; the Job retains task 1, parallelism 1, retry 0, and timeout 1,800 seconds.
+
+The approved execution `ecr-poc-evaluate-52k2q` completed all 20 cases under run `cloud-v6-20260820T135205Z-b5710860`. The immutable result is generation `1787234680256260`, SHA-256 `4cebd0b2a6962041cb02fc726b1a1fb10443a14d7b675a02b0bee978a0d18527`; checkpoint generation `1787234680344112` seals it. Strict publication validation rejected Reviewer JSON EOF role errors in DIR-02, DIR-03, XART-01, XART-03, and XART-04. All non-role provenance, retrieval, fingerprint, claim, metric, generation, and checkpoint checks pass. The run was not published or retried, and `published/v6/demo.json` remains absent.
+
+A local `v6-r1` reliability revision is now gated. It preserves all corpus/case/retrieval/prompt/verifier inputs, raises the structured output ceiling to the model-supported maximum, consumes only one naturally completed ADK final event, and blocks any non-`STOP` output without logging raw content. The approved payload seal created exactly five generation-guarded objects under `frozen/ecr-poc-v6-r1`; a second pass verified the same generations and SHA-256 values with `uploaded=0` and `verified_existing=5`. Commit/tag/push, deployment, rerun, and publication have not occurred.
+
 ## V5 completion status
 
 V5 is complete. Both lightweight freeze tags identify implementation commit `4d1519f84cd5bac836ea8125ee2d63525ad2578d`; v1-v4 tags and GCS objects remain unchanged. Revision `ecr-poc-00008-pk2` and Job `ecr-poc-evaluate` use image digest `sha256:8f4cc7cf8fa04e5832b83634b45c5139868ee7d2f8f0d56c929a49521bbe8afd`.

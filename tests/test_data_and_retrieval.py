@@ -9,6 +9,7 @@ import pytest
 from ecr_poc.data import (
     DataIntegrityError,
     active_data_root,
+    experiment_manifest_name,
     load_artifacts,
     load_cases,
     repository_root,
@@ -34,6 +35,13 @@ def test_frozen_data_integrity_and_distribution() -> None:
         "clean": 2,
         "benign": 3,
     }
+
+
+def test_v6_reliability_revision_reuses_the_frozen_data_contract() -> None:
+    root = active_data_root()
+    assert experiment_manifest_name("ecr-poc-regression-v6-r1") == "ecr-poc-v6-r1.json"
+    assert validate_experiment_manifest(root, "ecr-poc-v6-r1.json")
+    assert validate_all(root, "ecr-poc-v6-r1.json")["cases"] == 20
 
 
 def _v6_retriever() -> HybridRetriever:

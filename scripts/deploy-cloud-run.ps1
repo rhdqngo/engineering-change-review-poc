@@ -51,6 +51,9 @@ $experiment = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($experiment.freeze_tag -ne $FreezeTag) {
     throw "Experiment manifest freeze tag does not match -FreezeTag."
 }
+if ($experiment.gcs_freeze.prefix -ne $InputPrefix) {
+    throw "Experiment manifest GCS freeze prefix does not match -InputPrefix."
+}
 if (
     $InputPrefix -match '^frozen/ecr-poc-v[1-5](?:/|$)' -or
     $RunPrefix -eq 'runs' -or
@@ -75,6 +78,7 @@ $webEnvironment = @(
     "ECR_RESULT_STORE=gcs"
     "ECR_GCS_BUCKET=$bucketName"
     "ECR_GCS_INPUT_PREFIX=$InputPrefix"
+    "ECR_EXPERIMENT_MANIFEST=$ExperimentManifest"
     "ECR_PUBLISHED_OBJECT=$PublishedObject"
     "ECR_FREEZE_VERSION=$($experiment.experiment_id)"
     "ECR_PUBLISHED_CACHE_TTL_SECONDS=30"

@@ -1,7 +1,7 @@
 # Current Project State
 
 status: in-progress
-phase: v6-implementation-frozen-local
+phase: v6-r1-payload-sealed-local
 updated: 2026-08-20
 
 ## Objective
@@ -15,7 +15,7 @@ Discover which unchanged NASA cFS baseline artifacts warrant human re-review aft
 - The final pipeline is deterministic Query Processor → Broad Hybrid Top-40 → typed identifier 1-hop expansion → deterministic Final Top-10 → Engineering Reviewer atomic claims → deterministic evidence validation → independent Evidence Verifier → Human Engineer.
 - Google ADK retains exactly two `LlmAgent` roles: Engineering Reviewer and Evidence Verifier.
 - The existing 20 cases become a frozen regression/diagnostic benchmark rather than an unseen preregistered evaluation.
-- Dedicated commit `ed4dd2a6da058675a62b8540451db9c18612ffa8` and local lightweight tag `ecr-poc-v6-design-freeze` freeze the purpose and architecture. The tag never moves and has not been pushed.
+- Dedicated commit `ed4dd2a6da058675a62b8540451db9c18612ffa8` and lightweight tag `ecr-poc-v6-design-freeze` freeze the purpose and architecture. The tag was pushed and never moves.
 
 ## Completed local implementation
 
@@ -39,8 +39,11 @@ Discover which unchanged NASA cFS baseline artifacts warrant human re-review aft
 - Final local gate passes: `validate-data`, `validate-historical`, 52 pytest tests, Ruff, mypy, package build, and PowerShell parsing 5/5.
 - Vertex document generation checkpoints each completed batch as hash/vector-only local cache shards, so a later provider failure does not rebill completed batches; live Incoming Artifact queries bypass disk caching.
 - Fresh in-app browser validation passes at 1440×900 and 390×844 for Live and Evaluation: long input, no-supported/review-required/inconclusive, validation/index recovery, result/error focus, supported-claim-only evidence, Broad/Expanded/Final scope, rapid case switching, keyboard docket scrolling, single-line narrow actions, and body/table overflow.
-- The five large immutable payloads were uploaded once to `gs://ecr-poc-912838451352-asia-northeast3/frozen/ecr-poc-v6` with generation preconditions, then a second pass verified all five existing objects byte-for-byte without creating a new generation. The tracked and staged manifests pin every generation and SHA-256.
-- No v6 full-tree upload, deployment, 20-case Job, or publish action has been executed.
+- The five large immutable payloads were uploaded once to `gs://ecr-poc-912838451352-asia-northeast3/frozen/ecr-poc-v6` with generation preconditions, then a second pass verified all five existing objects byte-for-byte without creating a new generation. The frozen manifest pins every generation and SHA-256.
+- Commit `429cfe7e588b08ac15a44d3bf6d53aaa30d98d78`, `main`, and lightweight tag `ecr-poc-v6-freeze` were pushed and verified. The design and implementation tags remain on their original commits.
+- Provisioning reused the hardened bucket and dedicated service accounts. Private Cloud Run revision `ecr-poc-00009-ghj` and Job `ecr-poc-evaluate` use the same immutable image digest `sha256:cb7019f9a73bfa265db83a99a05b5aebd48c7bcdf2c8993c02f60f4fb43813c3`; service max instances/concurrency are 1/1 and the Job is task 1, parallelism 1, retry 0.
+- The approved official Job execution `ecr-poc-evaluate-52k2q` completed 20/20 terminal cases under run `cloud-v6-20260820T135205Z-b5710860`. Its immutable result generation is `1787234680256260`, SHA-256 `4cebd0b2a6962041cb02fc726b1a1fb10443a14d7b675a02b0bee978a0d18527`, and terminal checkpoint generation is `1787234680344112`.
+- Strict publication validation rejected that run because DIR-02, DIR-03, XART-01, XART-03, and XART-04 contain Engineering Reviewer JSON EOF role errors. All non-role provenance, retrieval, fingerprint, claim, metric, result-generation, and checkpoint seals pass. The failed-for-publication result remains immutable, was not published, and was not automatically rerun.
 
 ## Vertex embedding generation
 
@@ -50,13 +53,22 @@ Discover which unchanged NASA cFS baseline artifacts warrant human re-review aft
 - The final index contains 35,515 ordered rows at 768 dimensions. Metadata SHA-256 is `0abacaefc3637f4ca33842df3f91940e0f03f8bfbc66f9c9b692e2bc350f82a0`, vector SHA-256 is `e480ff4846aceb79bfa40c71c446ce35555bf9b89ec6ab95e144087a74fbbb8f`, and fingerprint is `60204dd53bc1b8a9f2013552502fecf46aeb5a6a65df66fb38294d8e762b9748`.
 - A second cache-only build produced byte-identical metadata and vector files. The active pre-freeze manifest and regenerated fixture now bind to this Vertex index. No GCS object, deployment, Job, or published pointer was created.
 
+## Local reliability revision
+
+- The frozen v6 run exposed a structured-generation reliability defect rather than a retrieval or evidence-integrity defect. `gemini-3.5-flash` ended five Reviewer responses with incomplete JSON while the provider did not preserve or classify the model finish reason.
+- An uncommitted local revision raises the model-supported structured output ceiling from 8,192 to 65,536 tokens, replaces the debug helper with production `run_async`, accepts exactly one naturally completed final event, and rejects non-`STOP`, partial, missing, or ambiguous output without exposing raw content.
+- The full local gate passes with the revision: original v6 and explicit r1 `validate-data`, `validate-historical`, 57 pytest tests, Ruff, mypy, package build, and PowerShell parsing 5/5.
+- Frozen manifest `ecr-poc-v6-r1.json` defines experiment `ecr-poc-regression-v6-r1`, tag `ecr-poc-v6-r1-freeze`, input `frozen/ecr-poc-v6-r1`, and run prefix `runs/v6-r1`. It reuses the corpus, cases, prompts, vectors, and identifier index byte-for-byte and records only the execution-reliability changes.
+- The separately approved r1 payload upload created exactly five objects under `frozen/ecr-poc-v6-r1` with generation preconditions. A second identical pass returned `uploaded=0` and `verified_existing=5`; the manifest now pins all five generations and SHA-256 values. No r1 small frozen tree, commit, tag, push, deployment, or Vertex call exists yet.
+- `ecr-poc-v6-freeze`, its GCS tree, the failed run, and both existing tags remain immutable. Any corrected deployment and billable rerun use a new revision identity and a new run ID.
+
 ## Approval-gated boundary
 
-The implementation tree carrying this document is the local `ecr-poc-v6-freeze`; the earlier `ecr-poc-v6-design-freeze` remains on the design commit and is not moved. Neither the implementation commit nor tag is pushed without a separate approval. Provisioning/full-tree upload and private Cloud Run/Job deployment are a later external approval boundary; the official 20-case Job and publication each require another explicit approval.
+Local implementation and tests may continue. A revision commit/tag, push, immutable GCS write, deployment, and replacement 20-case Job are new external boundaries. In particular, no replacement Vertex Job runs without a fresh explicit billable approval, and `published/v6/demo.json` remains absent until one complete zero-role-error run passes strict validation.
 
 ## Next checkpoint
 
-Request approval to push the implementation commit and `ecr-poc-v6-freeze`. After that push is verified, request a separate approval to provision/verify the existing dedicated resources, upload the final small frozen inputs without changing the five sealed payloads, and deploy the private service/Job. The official 20-case execution and publication remain later independent approvals.
+The r1 payload generations are sealed and the post-seal full gate passes. Next, request approval for the revision commit, lightweight `ecr-poc-v6-r1-freeze` tag, and atomic `main`/tag push. Private service/Job deployment remains a separate approval. A fresh approval is still required immediately before the replacement 20-case Job; publication remains a later independent approval.
 
 ## Preserved v5 milestone
 

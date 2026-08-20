@@ -49,6 +49,9 @@ $experiment = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($experiment.freeze_tag -ne $FreezeTag) {
     throw "Experiment manifest freeze tag does not match -FreezeTag."
 }
+if ($experiment.gcs_freeze.prefix -ne $InputPrefix) {
+    throw "Experiment manifest GCS freeze prefix does not match -InputPrefix."
+}
 if ($InputPrefix -match '^frozen/ecr-poc-v[1-5](?:/|$)') {
     throw "Refusing to write v6 inputs into a historical v1-v5 GCS prefix."
 }
@@ -176,6 +179,7 @@ if ($trackedManifestHash -ne $stagedManifestHash) {
     throw "Frozen data root manifest does not match the tracked freeze manifest."
 }
 $env:ECR_DATA_ROOT = $resolvedFrozenDataRoot
+$env:ECR_EXPERIMENT_MANIFEST = $ExperimentManifest
 uv run ecr-poc validate-data
 if ($LASTEXITCODE -ne 0) {
     throw "Frozen v6 data integrity validation failed."

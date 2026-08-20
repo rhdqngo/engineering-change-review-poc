@@ -31,6 +31,18 @@ HISTORICAL_EXPERIMENT_MANIFESTS = (
 SUPPORTED_EXPERIMENT_MANIFESTS = (*HISTORICAL_EXPERIMENT_MANIFESTS, DEFAULT_EXPERIMENT_MANIFEST)
 
 
+def active_experiment_manifest() -> str:
+    return os.environ.get("ECR_EXPERIMENT_MANIFEST", DEFAULT_EXPERIMENT_MANIFEST)
+
+
+def is_v6_experiment_id(experiment_id: str) -> bool:
+    return re.fullmatch(r"ecr-poc-regression-v6(?:-[a-z][a-z0-9-]*)?", experiment_id) is not None
+
+
+def is_v6_manifest_name(name: str) -> bool:
+    return re.fullmatch(r"ecr-poc-v6(?:-[a-z][a-z0-9-]*)?\.json", name) is not None
+
+
 def repository_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -351,6 +363,12 @@ def load_experiment_manifest(
 def experiment_manifest_name(experiment_id: str) -> str:
     if experiment_id == ACTIVE_EXPERIMENT_ID:
         return DEFAULT_EXPERIMENT_MANIFEST
+    regression = re.fullmatch(
+        r"ecr-poc-regression-(v6-[a-z][a-z0-9-]*)",
+        experiment_id,
+    )
+    if regression is not None:
+        return f"ecr-poc-{regression.group(1)}.json"
     match = re.fullmatch(
         r"ecr-poc-preregistered-(v[2-9][0-9]*(?:-[a-z][a-z0-9-]*)?)",
         experiment_id,
@@ -376,15 +394,15 @@ def validate_experiment_manifest(
     version_key = version_match.group(1)
     version = version_match.group(2)
     expected_experiment_id = (
-        ACTIVE_EXPERIMENT_ID
-        if version_key == "v6"
+        f"ecr-poc-regression-{version_key}"
+        if version == "6"
         else f"ecr-poc-preregistered-{version_key}"
     )
     if manifest.get("experiment_id") != expected_experiment_id:
         raise DataIntegrityError(f"Unexpected {version_key} experiment ID")
     if manifest.get("freeze_tag") != f"ecr-poc-{version_key}-freeze":
         raise DataIntegrityError(f"Unexpected {version_key} freeze tag")
-    expected_observed = version_key == "v6"
+    expected_observed = version == "6"
     if manifest.get("results_observed_before_freeze") is not expected_observed:
         raise DataIntegrityError(
             f"v{version} result-observation posture changed"
@@ -432,7 +450,7 @@ def validate_experiment_manifest(
         raise DataIntegrityError(f"v{version} prompt version changed")
     expected_roles = (
         {"engineering_review", "evidence_verifier"}
-        if version_key == "v6"
+        if version == "6"
         else {"change_analyst", "engineering_review", "evidence_verifier"}
     )
     if set(prompt_hashes) != expected_roles:
@@ -457,7 +475,7 @@ def validate_experiment_manifest(
             expected_experiment_id,
             str(manifest.get("base_experiment_id", "")),
         }
-        if version_key == "v6" and manifest.get("freeze_status") != "frozen":
+        if version == "6" and manifest.get("freeze_status") != "frozen":
             allowed_embedding_experiments.add("ecr-poc-preregistered-v6")
         if embedding_index.get("experiment_id") not in allowed_embedding_experiments:
             raise DataIntegrityError(f"v{version} embedding index experiment ID mismatch")
@@ -466,6 +484,16 @@ def validate_experiment_manifest(
         if int(version) >= 6:
             if manifest.get("baseline_id") != "nasa-cfs-bundle-v7.0.1":
                 raise DataIntegrityError("v6 baseline identity mismatch")
+            if version_key == "v6-r1":
+                generation = manifest.get("generation")
+                if (
+                    not isinstance(generation, dict)
+                    or generation.get("max_output_tokens") != 65_536
+                    or generation.get("adk_execution") != "run_async-final-stop-v1"
+                ):
+                    raise DataIntegrityError(
+                        "v6 reliability revision generation contract changed"
+                    )
             if manifest.get("artifact_package_file") not in files:
                 raise DataIntegrityError("v6 manifest does not freeze its artifact package")
             if manifest.get("raw_source_archive_file") not in files:
@@ -494,7 +522,7 @@ def validate_experiment_manifest(
                 gcs_freeze = manifest.get("gcs_freeze")
                 if (
                     not isinstance(gcs_freeze, dict)
-                    or gcs_freeze.get("prefix") != "frozen/ecr-poc-v6"
+                    or gcs_freeze.get("prefix") != f"frozen/ecr-poc-{version_key}"
                     or not isinstance(gcs_freeze.get("objects"), dict)
                 ):
                     raise DataIntegrityError(
@@ -520,17 +548,20 @@ def validate_experiment_manifest(
     return validated
 
 
-def validate_all(root: Path | None = None) -> dict[str, int]:
+def validate_all(
+    root: Path | None = None, experiment_manifest: str | None = None
+) -> dict[str, int]:
     root = root or active_data_root()
+    selected_manifest = experiment_manifest or active_experiment_manifest()
     validate_provenance(root)
-    artifacts = load_artifacts(root, DEFAULT_EXPERIMENT_MANIFEST)
-    _, _, cases = load_cases(root)
+    artifacts = load_artifacts(root, selected_manifest)
+    _, _, cases = load_cases(root, selected_manifest)
     validate_expected_evidence(cases, artifacts)
-    validate_experiment_manifest(root, DEFAULT_EXPERIMENT_MANIFEST)
+    validate_experiment_manifest(root, selected_manifest)
     from .embedding_index import load_embedding_index
     from .identifier_index import load_identifier_index
 
-    manifest = load_experiment_manifest(root, DEFAULT_EXPERIMENT_MANIFEST)
+    manifest = load_experiment_manifest(root, selected_manifest)
     frozen_index = load_embedding_index(
         root, str(manifest["embedding_index_file"]), artifacts
     )

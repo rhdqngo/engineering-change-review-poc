@@ -16,8 +16,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .data import (
     ACTIVE_EXPERIMENT_ID,
-    DEFAULT_EXPERIMENT_MANIFEST,
     active_data_root,
+    active_experiment_manifest,
     load_artifacts,
     load_cases,
     load_experiment_manifest,
@@ -78,9 +78,10 @@ def _runtime_data_root() -> Path:
 
 def _build_live_runtime() -> LiveRuntime:
     root = _runtime_data_root()
-    validate_all(root)
-    manifest = load_experiment_manifest(root, DEFAULT_EXPERIMENT_MANIFEST)
-    artifacts = load_artifacts(root, DEFAULT_EXPERIMENT_MANIFEST)
+    manifest_name = active_experiment_manifest()
+    validate_all(root, manifest_name)
+    manifest = load_experiment_manifest(root, manifest_name)
+    artifacts = load_artifacts(root, manifest_name)
     metadata_relative = str(manifest["embedding_index_file"])
     frozen_index = load_embedding_index(root, metadata_relative, artifacts)
     embedding_provider = os.environ.get("ECR_LIVE_EMBEDDING", "local")
@@ -268,9 +269,10 @@ async def integrity() -> dict[str, object]:
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"integrity check failed: {error}") from error
     published_cases = payload.get("cases")
+    manifest = load_experiment_manifest(root, active_experiment_manifest())
     return {
         "status": "valid",
-        "active_experiment_id": ACTIVE_EXPERIMENT_ID,
+        "active_experiment_id": str(manifest["experiment_id"]),
         "data": counts,
         "published_cases": len(published_cases) if isinstance(published_cases, list) else 0,
         **metadata,
@@ -280,7 +282,7 @@ async def integrity() -> dict[str, object]:
 @app.get("/api/cases")
 async def cases() -> dict[str, object]:
     root = await asyncio.to_thread(_runtime_data_root)
-    experiment_id, top_k, frozen_cases = load_cases(root)
+    experiment_id, top_k, frozen_cases = load_cases(root, active_experiment_manifest())
     return {
         "experiment_id": experiment_id,
         "top_k": top_k,

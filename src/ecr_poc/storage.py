@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .data import (
-    ACTIVE_EXPERIMENT_ID,
     active_data_root,
     experiment_manifest_name,
+    is_v6_experiment_id,
     load_experiment_manifest,
     repository_root,
     sha256_file,
@@ -322,9 +322,7 @@ def _validate_cloud_provenance(
     expected_experiment_manifest: str | None = None,
 ) -> str:
     root = (
-        active_data_root()
-        if run.experiment_id == ACTIVE_EXPERIMENT_ID
-        else repository_root()
+        active_data_root() if is_v6_experiment_id(run.experiment_id) else repository_root()
     )
     provenance = run.provenance
     if provenance is None:
@@ -370,7 +368,7 @@ def _validate_cloud_provenance(
         raise RuntimeError("Published embedding model mismatch")
     if run.experiment_id.startswith(
         ("ecr-poc-preregistered-v5", "ecr-poc-preregistered-v6")
-    ) or run.experiment_id == ACTIVE_EXPERIMENT_ID:
+    ) or is_v6_experiment_id(run.experiment_id):
         embedding_index_file = str(manifest["embedding_index_file"])
         if provenance.embedding_index_manifest != embedding_index_file:
             raise RuntimeError("Published embedding index manifest mismatch")
@@ -380,7 +378,7 @@ def _validate_cloud_provenance(
             raise RuntimeError("Published embedding index manifest hash mismatch")
         if not provenance.embedding_index_fingerprint:
             raise RuntimeError("Published run has no embedding vector fingerprint")
-    if run.experiment_id == ACTIVE_EXPERIMENT_ID:
+    if is_v6_experiment_id(run.experiment_id):
         identifier_index_file = str(manifest["identifier_index_file"])
         if provenance.identifier_index_manifest != identifier_index_file:
             raise RuntimeError("Published identifier index manifest mismatch")
@@ -400,7 +398,7 @@ def _validated_run(
     expected_experiment_manifest: str | None = None,
 ) -> EvaluationRun:
     run = EvaluationRun.model_validate_json(content)
-    is_current_v6 = run.experiment_id == ACTIVE_EXPERIMENT_ID
+    is_current_v6 = is_v6_experiment_id(run.experiment_id)
     is_versioned = is_current_v6 or (
         run.experiment_id.startswith("ecr-poc-preregistered-v")
         and run.experiment_id != "ecr-poc-preregistered-v1"

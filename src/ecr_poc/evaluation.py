@@ -11,6 +11,7 @@ from typing import Any
 from .data import (
     DEFAULT_EXPERIMENT_MANIFEST,
     active_data_root,
+    is_v6_manifest_name,
     load_artifacts,
     load_cases,
     load_experiment_manifest,
@@ -103,7 +104,7 @@ async def evaluate(
     if root is None:
         root = (
             active_data_root()
-            if experiment_manifest in {None, DEFAULT_EXPERIMENT_MANIFEST}
+            if experiment_manifest is None or is_v6_manifest_name(experiment_manifest)
             else Path(__file__).resolve().parents[2]
         )
     run_id = run_id or str(uuid.uuid4())
@@ -120,8 +121,8 @@ async def evaluate(
                 "Refusing to overwrite an immutable v1-v5 historical result path"
             )
     selected_manifest = experiment_manifest or DEFAULT_EXPERIMENT_MANIFEST
-    if selected_manifest == DEFAULT_EXPERIMENT_MANIFEST:
-        validate_all(root)
+    if is_v6_manifest_name(selected_manifest):
+        validate_all(root, selected_manifest)
     else:
         validate_experiment_manifest(root, selected_manifest)
     freeze_hashes = validate_experiment_manifest(root, selected_manifest)
