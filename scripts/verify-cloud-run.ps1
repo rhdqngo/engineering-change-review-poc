@@ -2,10 +2,44 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ProjectId,
 
-    [string]$Region = "asia-northeast3"
+    [string]$Region = "asia-northeast3",
+
+    [Parameter(Mandatory = $true)]
+    [string]$ExperimentManifest,
+
+    [Parameter(Mandatory = $true)]
+    [string]$FreezeTag,
+
+    [Parameter(Mandatory = $true)]
+    [string]$SourceCommit,
+
+    [string]$RunPrefix = "runs/v5",
+
+    [string]$PublishedObject = "published/v5/demo.json"
 )
 
 $ErrorActionPreference = "Stop"
+
+$manifestPath = Join-Path "data/experiments" $ExperimentManifest
+if ((Split-Path -Leaf $ExperimentManifest) -ne $ExperimentManifest -or -not (Test-Path -LiteralPath $manifestPath)) {
+    throw "ExperimentManifest must name an existing manifest leaf in data/experiments."
+}
+$experiment = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+if ($experiment.freeze_tag -ne $FreezeTag) {
+    throw "Experiment manifest freeze tag does not match -FreezeTag."
+}
+$freezeCommit = git rev-parse "refs/tags/$FreezeTag"
+if ($LASTEXITCODE -ne 0 -or $freezeCommit -ne $SourceCommit) {
+    throw "Requested freeze tag does not identify the requested source commit."
+}
+if (
+    $RunPrefix -eq 'runs' -or
+    $RunPrefix -match '^runs/v[1-4](?:/|$)' -or
+    $PublishedObject -eq 'published/demo.json' -or
+    $PublishedObject -match '^published/v[1-4](?:/|$)'
+) {
+    throw "Refusing to verify v5 through a historical v1-v4 GCS namespace."
+}
 
 $projectNumber = gcloud projects describe $ProjectId --format "value(projectNumber)"
 $bucketName = "ecr-poc-$projectNumber-$Region"
@@ -34,6 +68,31 @@ if ($service.spec.template.spec.serviceAccountName -ne $expectedWebAccount) {
 if ($job.spec.template.spec.template.spec.serviceAccountName -ne $expectedJobAccount) {
     throw "Cloud Run Job is not using the dedicated job identity."
 }
+
+function ConvertTo-EnvironmentMap($items) {
+    $values = @{}
+    foreach ($item in @($items)) {
+        $values[$item.name] = $item.value
+    }
+    return $values
+}
+
+$serviceEnvironment = ConvertTo-EnvironmentMap $service.spec.template.spec.containers[0].env
+$jobEnvironment = ConvertTo-EnvironmentMap $job.spec.template.spec.template.spec.containers[0].env
+if (
+    $serviceEnvironment.ECR_PUBLISHED_OBJECT -ne $PublishedObject -or
+    $serviceEnvironment.ECR_FREEZE_VERSION -ne $experiment.experiment_id -or
+    $serviceEnvironment.ECR_SOURCE_COMMIT -ne $SourceCommit
+) {
+    throw "Cloud Run service environment does not match the requested v5 identity."
+}
+if (
+    $jobEnvironment.ECR_EXPERIMENT_MANIFEST -ne $ExperimentManifest -or
+    $jobEnvironment.ECR_GCS_RUN_PREFIX -ne $RunPrefix -or
+    $jobEnvironment.ECR_SOURCE_COMMIT -ne $SourceCommit
+) {
+    throw "Cloud Run Job environment does not match the requested v5 identity."
+}
 $serviceRevision = gcloud run revisions describe $service.status.latestReadyRevisionName `
     --project $ProjectId `
     --region $Region `
@@ -53,7 +112,7 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($identityToken)) {
 $headers = @{ Authorization = "Bearer $identityToken" }
 $unauthenticatedStatus = $null
 try {
-    Invoke-WebRequest -Uri "$serviceUrl/health" -UseBasicParsing | Out-Null
+    Invoke-WebRequest -Uri "$serviceUrl/healthz" -UseBasicParsing | Out-Null
     $unauthenticatedStatus = 200
 } catch {
     if ($null -ne $_.Exception.Response) {
@@ -63,14 +122,22 @@ try {
 if ($unauthenticatedStatus -ne 403) {
     throw "Unauthenticated Cloud Run requests must return 403; got $unauthenticatedStatus."
 }
-$health = Invoke-RestMethod -Uri "$serviceUrl/health" -Headers $headers
+$health = Invoke-RestMethod -Uri "$serviceUrl/healthz" -Headers $headers
+if ($health.status -ne "alive") {
+    throw "Cloud liveness endpoint failed."
+}
+$readiness = Invoke-RestMethod -Uri "$serviceUrl/readyz" -Headers $headers
+$integrity = Invoke-RestMethod -Uri "$serviceUrl/integrity" -Headers $headers
 if (
-    $health.status -ne "ok" -or
-    $health.data_freeze -ne "valid" -or
-    $health.result_store -ne "gcs" -or
-    [string]::IsNullOrWhiteSpace($health.published_run_id)
+    $readiness.status -ne "ready" -or
+    $readiness.data_integrity -ne "valid" -or
+    $readiness.result_store -ne "gcs" -or
+    $readiness.source_commit -ne $SourceCommit -or
+    $integrity.status -ne "valid" -or
+    $integrity.active_experiment_id -ne $experiment.experiment_id -or
+    [string]::IsNullOrWhiteSpace($readiness.published_run_id)
 ) {
-    throw "Cloud health response did not validate the GCS-published experiment."
+    throw "Cloud readiness/integrity response did not validate the GCS-published experiment."
 }
 $caseCatalog = Invoke-RestMethod -Uri "$serviceUrl/api/cases" -Headers $headers
 if ($caseCatalog.top_k -ne 6 -or $caseCatalog.cases.Count -ne 18) {
@@ -78,15 +145,15 @@ if ($caseCatalog.top_k -ne 6 -or $caseCatalog.cases.Count -ne 18) {
 }
 $evaluation = Invoke-RestMethod -Uri "$serviceUrl/api/evaluation" -Headers $headers
 if (
-    $evaluation.experiment_id -ne "ecr-poc-preregistered-v4" -or
+    $evaluation.experiment_id -ne $experiment.experiment_id -or
     $evaluation.cases.Count -ne 18 -or
-    $evaluation.run_id -ne $health.published_run_id
+    $evaluation.run_id -ne $readiness.published_run_id
 ) {
-    throw "Published Cloud evaluation is not the complete v4 run."
+    throw "Published Cloud evaluation is not the complete requested run."
 }
 
 $env:UV_CACHE_DIR = ".cache\uv"
-uv run ecr-poc verify-published --bucket $bucketName
+uv run ecr-poc verify-published --bucket $bucketName --published-object $PublishedObject
 if ($LASTEXITCODE -ne 0) {
     throw "Published GCS pointer verification failed."
 }
@@ -142,7 +209,7 @@ if ($jobBindings.Count -ne 1 -or $jobBindings[0] -ne "roles/storage.objectUser")
 }
 
 $logRecords = gcloud logging read `
-    "resource.type=cloud_run_job AND resource.labels.job_name=ecr-poc-evaluate AND jsonPayload.run_id=$($health.published_run_id)" `
+    "resource.type=cloud_run_job AND resource.labels.job_name=ecr-poc-evaluate AND jsonPayload.run_id=$($readiness.published_run_id)" `
     --project $ProjectId `
     --limit 200 `
     --format json | ConvertFrom-Json
@@ -162,10 +229,13 @@ if ($serializedLogs -match '"(prompt|raw_output|evidence|credential|token)"\s*:'
     throw "Structured logs contain a prohibited sensitive or raw-content field."
 }
 
-Write-Output "health=ok"
-Write-Output "dataFreeze=valid"
+Write-Output "liveness=alive"
+Write-Output "readiness=ready"
+Write-Output "integrity=valid"
 Write-Output "resultStore=gcs"
-Write-Output "publishedRun=$($health.published_run_id)"
+Write-Output "publishedRun=$($readiness.published_run_id)"
+Write-Output "publishedObject=$PublishedObject"
+Write-Output "runPrefix=$RunPrefix"
 Write-Output "topK=$($caseCatalog.top_k)"
 Write-Output "cases=$($caseCatalog.cases.Count)"
 Write-Output "webServiceAccount=$expectedWebAccount"

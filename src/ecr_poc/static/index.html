@@ -29,6 +29,11 @@
         <p id="case-meta" class="eyebrow"></p>
         <h2 id="change-title">Loading frozen case…</h2>
         <p id="scenario"></p>
+        <dl class="change-delta" aria-label="Frozen change artifact comparison">
+          <div><dt>Changed source</dt><dd><code id="changed-source">—</code></dd></div>
+          <div><dt>Original</dt><dd><code id="original-content">—</code></dd></div>
+          <div><dt>Changed</dt><dd><code id="changed-content">—</code></dd></div>
+        </dl>
       </div>
       <dl class="summary">
         <div><dt>Top-K</dt><dd id="top-k">—</dd></div>
@@ -43,7 +48,7 @@
           <h2 id="candidate-title">Fixed candidate docket</h2>
           <code id="fingerprint">candidate seal —</code>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Candidate disposition comparison; use arrow keys to scroll horizontally">
           <table>
             <thead><tr><th>Rank</th><th>Source</th><th>Hybrid</th><th>Baseline</th><th>Proposed</th></tr></thead>
             <tbody id="candidate-rows"></tbody>
@@ -63,6 +68,8 @@
         <section class="blocked">
           <h3>Fail-closed record</h3>
           <p id="blocked-detail">No blocked output for this candidate.</p>
+          <h3>All withheld records</h3>
+          <ol id="blocked-records" class="blocked-records"><li>Loading records…</li></ol>
         </section>
       </aside>
     </main>

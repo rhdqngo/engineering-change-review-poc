@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "experiment_id": "ecr-poc-preregistered-v5",
+  "embedding_model": "gemini-embedding-001",
+  "output_dimensionality": 768,
+  "task_types": {
+    "documents": "RETRIEVAL_DOCUMENT",
+    "queries": "RETRIEVAL_QUERY"
+  },
+  "document_serialization": "UTF-8 title + LF + exact artifact span content in artifacts.json order",
+  "artifact_manifest_sha256": "5c326e89079f587c06de48588742b6828ccd7ea8f0b646178eeab774dc1c43b8",
+  "document_input_set_sha256": "1344255e3b51a97b955cbe91c722a9bc7c10fc6a3c3f7fac9234bc9c50fed776",
+  "vector_fingerprint_policy": "SHA-256 of canonical JSON containing model, ordered source IDs, and full returned document vectors",
+  "offline_reference": {
+    "model": "deterministic-hash-embedding-v1",
+    "dimensions": 384,
+    "vector_fingerprint": "9235b163efa97ca5a58b4dc43ee6ebb2547ddfc811153a508868026799f3edb6"
+  },
+  "vertex_vector_fingerprint": null,
+  "vertex_vector_fingerprint_status": "record from the approved v5 baseline run; do not infer before billable execution"
+}

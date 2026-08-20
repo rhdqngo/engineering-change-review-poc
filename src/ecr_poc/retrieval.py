@@ -15,7 +15,7 @@ from google import genai
 from google.genai import types
 
 from .data import load_artifacts, repository_root
-from .models import ArtifactSpan, RetrievedCandidate, StructuredChange
+from .models import ArtifactSpan, CaseDefinition, RetrievedCandidate, StructuredChange
 
 _WORD = re.compile(r"[A-Za-z]+(?:[A-Z][a-z]+)*|[0-9]+")
 _CAMEL = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
@@ -160,6 +160,7 @@ class HybridRetriever:
         embedding_weight: float = 0.5,
         k1: float = 1.5,
         b: float = 0.75,
+        query_version: str = "structured-change-v1",
     ) -> None:
         if not math.isclose(lexical_weight + embedding_weight, 1.0):
             raise ValueError("Hybrid weights must sum to 1")
@@ -169,6 +170,12 @@ class HybridRetriever:
         self.embedding_weight = embedding_weight
         self.k1 = k1
         self.b = b
+        if query_version not in {
+            "structured-change-v1",
+            "structured-change-v2-artifact-delta",
+        }:
+            raise ValueError(f"Unknown retrieval query version: {query_version}")
+        self.query_version = query_version
         self._tokens = [tokenize(f"{item.title}\n{item.content}") for item in self.artifacts]
         self._lengths = [len(tokens) for tokens in self._tokens]
         self._avg_length = sum(self._lengths) / max(len(self._lengths), 1)
@@ -178,6 +185,18 @@ class HybridRetriever:
         self._document_embeddings = embedder.embed_documents(
             [f"{item.title}\n{item.content}" for item in self.artifacts]
         )
+        embedding_identity = {
+            "model": embedder.model_name,
+            "sources": [item.source_id for item in self.artifacts],
+            "vectors": self._document_embeddings,
+        }
+        self.embedding_index_fingerprint = hashlib.sha256(
+            json.dumps(
+                embedding_identity,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
 
     def _bm25(self, query_tokens: Sequence[str], index: int) -> float:
         frequencies = Counter(self._tokens[index])
@@ -198,19 +217,32 @@ class HybridRetriever:
             score += inverse_document_frequency * frequency * (self.k1 + 1) / denominator
         return score
 
-    def retrieve(self, change: StructuredChange, top_k: int) -> list[RetrievedCandidate]:
-        query = "\n".join(
-            part
-            for part in [
+    def retrieve(
+        self,
+        change: StructuredChange,
+        top_k: int,
+        *,
+        case: CaseDefinition | None = None,
+    ) -> list[RetrievedCandidate]:
+        query_parts = [
                 change.artifact_or_subsystem,
                 change.parameter,
                 change.old_value,
                 change.new_value,
                 change.change_type,
                 " ".join(change.related_terms),
-            ]
-            if part
-        )
+        ]
+        if self.query_version == "structured-change-v2-artifact-delta":
+            if case is None:
+                raise ValueError("artifact-delta query requires the frozen case definition")
+            query_parts.extend(
+                [
+                    case.changed_source_id,
+                    case.original_content,
+                    case.changed_content,
+                ]
+            )
+        query = "\n".join(part for part in query_parts if part)
         query_tokens = tokenize(query)
         query_embedding = self.embedder.embed_query(query)
         bm25_scores = [self._bm25(query_tokens, index) for index in range(len(self.artifacts))]

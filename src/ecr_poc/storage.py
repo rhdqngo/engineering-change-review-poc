@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -149,7 +150,13 @@ class GcsRunStore:
 
 
 def _frozen_paths(root: Path) -> Iterable[Path]:
-    for relative in ["data/cases", "data/nasa", "data/experiments", "data/prompts"]:
+    for relative in [
+        "data/cases",
+        "data/embeddings",
+        "data/nasa",
+        "data/experiments",
+        "data/prompts",
+    ]:
         base = root / relative
         yield from (path for path in base.rglob("*") if path.is_file())
 
@@ -303,6 +310,16 @@ def _validate_cloud_provenance(
         raise RuntimeError("Published generation model mismatch")
     if run.embedding_model != manifest["retrieval"]["embedding_model"]:
         raise RuntimeError("Published embedding model mismatch")
+    if run.experiment_id.startswith("ecr-poc-preregistered-v5"):
+        embedding_index_file = str(manifest["embedding_index_file"])
+        if provenance.embedding_index_manifest != embedding_index_file:
+            raise RuntimeError("Published embedding index manifest mismatch")
+        if provenance.embedding_index_manifest_sha256 != sha256_file(
+            root / embedding_index_file
+        ):
+            raise RuntimeError("Published embedding index manifest hash mismatch")
+        if not provenance.embedding_index_fingerprint:
+            raise RuntimeError("Published run has no embedding vector fingerprint")
     return manifest_name
 
 
@@ -321,7 +338,10 @@ def _validated_run(
         if not is_versioned:
             raise RuntimeError("Published Cloud run is not a versioned experiment")
         _validate_cloud_provenance(run, expected_experiment_manifest)
-    recalculated = calculate_metrics(run.cases)
+    recalculated = calculate_metrics(
+        run.cases,
+        complete_overall=run.experiment_id.startswith("ecr-poc-preregistered-v5"),
+    )
     if run.metrics != recalculated:
         raise RuntimeError("Published evaluation metrics do not match raw cases")
     if len(run.cases) != 18:
@@ -345,6 +365,15 @@ def _validated_run(
             raise RuntimeError(f"{case.case_id} Baseline/Proposed arms differ")
         if case.candidate_fingerprint != candidate_fingerprint(case.candidates):
             raise RuntimeError(f"{case.case_id} candidate fingerprint mismatch")
+        if run.experiment_id.startswith("ecr-poc-preregistered-v5") and (
+            not case.embedding_index_fingerprint
+            or case.embedding_index_fingerprint
+            != run.configuration.get("embedding_index_fingerprint")
+            or run.provenance is None
+            or case.embedding_index_fingerprint
+            != run.provenance.embedding_index_fingerprint
+        ):
+            raise RuntimeError(f"{case.case_id} embedding index fingerprint mismatch")
         candidate_by_id = {candidate.source_id: candidate for candidate in case.candidates}
         verifier_items: list[dict[str, Any]] = []
         for trace in case.role_traces:
@@ -353,6 +382,13 @@ def _validated_run(
             values = trace.parsed.get("verifications")
             if isinstance(values, list):
                 verifier_items.extend(item for item in values if isinstance(item, dict))
+        verified_counts = Counter(
+            review.source_id
+            for review in case.final_reviews
+            if review.status is FinalStatus.VERIFIED_REVIEW
+        )
+        if any(count != 1 for count in verified_counts.values()):
+            raise RuntimeError(f"{case.case_id} contains duplicate verified reviews")
         for review in case.final_reviews:
             if review.status is not FinalStatus.VERIFIED_REVIEW:
                 continue
@@ -383,23 +419,48 @@ def _validated_run(
     return run
 
 
+def validate_historical_runs(root: Path | None = None) -> dict[str, str]:
+    root = root or repository_root()
+    files = {
+        "v1": ("vertex-adk.json", None),
+        "v2": ("vertex-adk-v2.json", "ecr-poc-v2.json"),
+        "v3": ("vertex-adk-v3.json", "ecr-poc-v3.json"),
+        "v4": ("vertex-adk-v4.json", "ecr-poc-v4.json"),
+    }
+    validated: dict[str, str] = {}
+    for version_label, (file_name, manifest_name) in files.items():
+        content = (root / "results" / "runs" / file_name).read_bytes()
+        run = _validated_run(
+            content,
+            require_cloud=manifest_name is not None,
+            expected_experiment_manifest=manifest_name,
+        )
+        validated[version_label] = run.run_id
+    return validated
+
+
 def publish_run(
     bucket_name: str,
     run_id: str,
     source_commit: str,
     experiment_manifest: str,
+    *,
+    run_prefix: str = "runs/v5",
+    published_object_name: str = "published/v5/demo.json",
 ) -> PublishedPointer:
     client = _storage_client()
     bucket = client.bucket(bucket_name)
-    failure_blob = bucket.blob(f"runs/{run_id}/failure.json")
+    normalized_run_prefix = run_prefix.strip("/")
+    result_parent = f"{normalized_run_prefix}/{run_id}"
+    failure_blob = bucket.blob(f"{result_parent}/failure.json")
     if failure_blob.exists():
         raise RuntimeError("Failed runs cannot be published")
-    result_name = f"runs/{run_id}/evaluation.json"
+    result_name = f"{result_parent}/evaluation.json"
     result_blob = bucket.blob(result_name)
     content = result_blob.download_as_bytes()
     result_blob.reload()
     checkpoint_content = bucket.blob(
-        f"runs/{run_id}/checkpoint.json"
+        f"{result_parent}/checkpoint.json"
     ).download_as_bytes()
     checkpoint = json.loads(checkpoint_content)
     final_record = checkpoint.get("final") if isinstance(checkpoint, dict) else None
@@ -430,7 +491,7 @@ def publish_run(
         source_commit=source_commit,
         experiment_manifest=experiment_manifest,
     )
-    pointer_blob = bucket.blob("published/demo.json")
+    pointer_blob = bucket.blob(published_object_name.strip("/"))
     pointer_generation = 0
     if pointer_blob.exists():
         pointer_blob.reload()
@@ -447,10 +508,15 @@ def publish_run(
     return pointer
 
 
-def load_published_run(bucket_name: str) -> tuple[EvaluationRun, PublishedPointer]:
+def load_published_run(
+    bucket_name: str,
+    published_object_name: str = "published/v5/demo.json",
+) -> tuple[EvaluationRun, PublishedPointer]:
     client = _storage_client()
     bucket = client.bucket(bucket_name)
-    pointer_content = bucket.blob("published/demo.json").download_as_bytes()
+    pointer_content = bucket.blob(
+        published_object_name.strip("/")
+    ).download_as_bytes()
     pointer = PublishedPointer.model_validate_json(pointer_content)
     result_blob = bucket.blob(pointer.object_name, generation=pointer.generation)
     content = result_blob.download_as_bytes(if_generation_match=pointer.generation)
@@ -472,7 +538,7 @@ def load_published_run(bucket_name: str) -> tuple[EvaluationRun, PublishedPointe
     if run.run_id != pointer.run_id or run.experiment_id != pointer.experiment_id:
         raise RuntimeError("Published pointer identity mismatch")
     if (
-        pointer.object_name != f"runs/{run.run_id}/evaluation.json"
+        not pointer.object_name.endswith(f"/{run.run_id}/evaluation.json")
         or run.provenance is None
         or pointer.source_commit != run.provenance.source_commit
         or expected_manifest

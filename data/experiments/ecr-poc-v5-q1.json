@@ -1,0 +1,48 @@
+{
+  "experiment_id": "ecr-poc-preregistered-v5-q1",
+  "base_experiment_id": "ecr-poc-preregistered-v5",
+  "supersedes_experiment_id": "ecr-poc-preregistered-v5",
+  "purpose": "single-variable retrieval query iteration using the frozen changed-artifact delta",
+  "freeze_tag": "ecr-poc-v5-q1-freeze",
+  "results_observed_before_freeze": false,
+  "case_file": "data/cases/cases-v5.json",
+  "top_k": 6,
+  "case_counts": {
+    "direct": 4,
+    "semantic": 4,
+    "cross_artifact": 4,
+    "clean": 3,
+    "benign": 3
+  },
+  "retrieval": {
+    "lexical": "BM25(k1=1.5,b=0.75)",
+    "fusion": {
+      "bm25": 0.5,
+      "embedding": 0.5,
+      "normalization": "min-max"
+    },
+    "query_version": "structured-change-v2-artifact-delta",
+    "embedding_model": "gemini-embedding-001",
+    "embedding_output_dimensionality": 768
+  },
+  "embedding_index_file": "data/embeddings/ecr-poc-v5.json",
+  "generation": {
+    "model": "gemini-3.5-flash",
+    "temperature": 0,
+    "role_timeout_seconds": 120
+  },
+  "files": {
+    "data/cases/cases-v5.json": "e42264ae56f71071ab46c952e7820dc09bd8132fe243c1b01ff781c9bd564132",
+    "data/nasa/artifacts.json": "5c326e89079f587c06de48588742b6828ccd7ea8f0b646178eeab774dc1c43b8",
+    "data/nasa/provenance.json": "eadb2aeb4c194db3e38ea08c600ddac2d9fb59bda6f21772523dfda7d5535fc7",
+    "data/prompts/ecr-poc-v2.json": "ccbf675537f0da4bda239f69359195866fee7329e4c1f74af4a1cf50fa7dc79f",
+    "data/embeddings/ecr-poc-v5.json": "584602566575d059654fc2de2e976e5a76ea458d63a66962160be68d42576412"
+  },
+  "prompt_file": "data/prompts/ecr-poc-v2.json",
+  "prompt_version": "ecr-poc-prompts-v2",
+  "prompt_hashes": {
+    "change_analyst": "5a840bea138ff965ea727e5498401d573cb563c75f978b3e27a6ab8bdfecac1f",
+    "engineering_review": "d014f104f679b742153b8746059d7584c21f561b98ce494a4763ad10e3733e9b",
+    "evidence_verifier": "9e6057d53ad3ebe7bf68754cf06f50918c862522cb91a952e935eb3afe3a21a6"
+  }
+}

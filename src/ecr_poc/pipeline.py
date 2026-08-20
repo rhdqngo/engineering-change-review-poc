@@ -21,6 +21,7 @@ from .models import (
     ReviewItem,
     RoleTrace,
     VerificationBatch,
+    VerifierVerdict,
 )
 from .observability import log_event
 from .providers import ReviewProvider
@@ -79,7 +80,7 @@ async def run_case(
 
     # This object is intentionally shared by both arms. A copied/re-ranked list
     # is not created for Proposed.
-    candidates = retriever.retrieve(structured_change, top_k)
+    candidates = retriever.retrieve(structured_change, top_k, case=case)
     baseline_candidates = candidates
     proposed_candidates = candidates
     if not _same_candidates(baseline_candidates, proposed_candidates):
@@ -131,12 +132,14 @@ async def run_case(
             error_type=type(error).__name__,
         )
     candidate_by_id = {candidate.source_id: candidate for candidate in candidates}
+    proposal_counts = Counter(item.source_id for item in review_batch.reviews)
     seen: set[str] = set()
     valid_for_verifier: list[ReviewItem] = []
     final_reviews: list[FinalReview] = []
 
     for proposal in review_batch.reviews:
-        if proposal.source_id in seen:
+        seen.add(proposal.source_id)
+        if proposal_counts[proposal.source_id] != 1:
             final_reviews.append(
                 FinalReview(
                     source_id=proposal.source_id,
@@ -146,7 +149,6 @@ async def run_case(
                 )
             )
             continue
-        seen.add(proposal.source_id)
         candidate = candidate_by_id.get(proposal.source_id)
         if candidate is None:
             final_reviews.append(
@@ -293,6 +295,28 @@ async def run_case(
             item.source_id,
         )
     )
+    for item in final_reviews:
+        if item.status is FinalStatus.VERIFIED_REVIEW:
+            verifier_verdict = VerifierVerdict.SUPPORTED
+        elif item.blocked_stage == "independent_verifier":
+            verifier_verdict = (
+                VerifierVerdict.MISSING
+                if item.verifier_reason == "Verifier returned no verdict"
+                else VerifierVerdict.REJECTED
+            )
+        else:
+            verifier_verdict = VerifierVerdict.NOT_APPLICABLE
+        log_event(
+            "decision_recorded",
+            run_id=run_id,
+            case_id=case.id,
+            role="evidence_verifier",
+            model=provider.model_name,
+            source_id=item.source_id,
+            decision=item.status,
+            verifier_verdict=verifier_verdict,
+            blocked_stage=item.blocked_stage,
+        )
     candidate_ids = [candidate.source_id for candidate in candidates]
     retrieval_hit = all(
         target in candidate_ids for target in case.expected_review_targets
@@ -314,6 +338,7 @@ async def run_case(
         structured_change=structured_change,
         candidates=candidates,
         candidate_fingerprint=fingerprint,
+        embedding_index_fingerprint=retriever.embedding_index_fingerprint,
         baseline_candidate_source_ids=candidate_ids,
         proposed_candidate_source_ids=candidate_ids,
         proposed_reviews=review_batch.reviews,

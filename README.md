@@ -1,8 +1,8 @@
 # Evidence-grounded Engineering Change Review PoC
 
-This repository contains a frozen experiment over a pinned NASA cFS `sample_app` v7.0.1 subset. It compares a baseline fixed Hybrid Retrieval Top-6 with a proposed three-role Google ADK review over the exact same candidates. Only exact source spans supported by an independent verifier can reach final review output. The retained v1 result is hash-consistent but is not claimed as externally timed preregistration; the v2 and v3 Cloud protocols establish that evidence with remote freeze tags before execution.
+This repository contains a frozen experiment over a pinned NASA cFS `sample_app` v7.0.1 subset. It compares a baseline fixed Hybrid Retrieval Top-6 with a proposed three-role Google ADK review over the exact same candidates. Only exact source spans supported by an independent verifier can reach final review output. The retained v1 result is hash-consistent but is not claimed as externally timed preregistration; the v2-v4 Cloud protocols establish that evidence with remote freeze tags before execution.
 
-The final accepted v4 Cloud run is `cloud-v4-20260820T050914Z-92f72d97`: 18/18 cases completed, retrieval coverage was 10/12, conditional review success was 9/10, and 3/6 control cases produced at least one false alarm. See `docs/results/experiment-report-v4.md` for provenance, limitations, and immutable result identity. V1, both v2 runs, and v3 remain immutable historical evidence.
+The accepted v4 Cloud run remains immutable historical evidence. Active development is isolated in v5: a richer case/evidence schema, fixed embedding-index identity, active-only web validation, separate health/integrity paths, generalized deployment inputs, and a one-variable local quality iteration. See `docs/results/experiment-report-v5.md`; local fixture metrics are never represented as LLM evidence.
 
 ## Setup and commands
 
@@ -19,26 +19,27 @@ uv build
 uv run ecr-poc serve --host 127.0.0.1 --port 8080
 ```
 
-Open `http://127.0.0.1:8080`. The default Demo UI uses a deterministic fixture and labels it as non-LLM evidence. Local published-result mode reads the retained v1 artifact. A Cloud deployment sets `ECR_RESULT_STORE=gcs` and accepts only the generation- and SHA-verified object referenced by `published/demo.json`; it never silently falls back to the image-bundled v1 result.
+Open `http://127.0.0.1:8080`. The default Demo UI uses a deterministic fixture and labels it as non-LLM evidence. Local published-result mode reads the active v5 fixture baseline. A Cloud deployment sets `ECR_RESULT_STORE=gcs` and accepts only the generation- and SHA-verified active experiment object; it never falls back to historical output.
 
 ## Reproducible evaluation
 
 Offline fixture validation (not an experiment result):
 
 ```powershell
-uv run ecr-poc evaluate --provider fixture --embedding local --output results\fixtures\deterministic.json --inject-unsupported
+uv run ecr-poc evaluate --provider fixture --embedding local --output .runtime\deterministic-v5.json --inject-unsupported --no-update-latest
 ```
 
-Actual frozen Vertex/ADK experiment (billable and credentialed):
+Local versioned Vertex/ADK diagnostic (billable and credentialed; run only after explicit approval):
 
 ```powershell
 $env:GOOGLE_GENAI_USE_VERTEXAI='TRUE'
 $env:GOOGLE_CLOUD_PROJECT='<project-id>'
 $env:GOOGLE_CLOUD_LOCATION='global'
-uv run ecr-poc evaluate --provider vertex-adk --embedding vertex --output results\runs\vertex-adk.json
+$sourceCommit = git rev-parse HEAD
+uv run ecr-poc evaluate --provider vertex-adk --embedding vertex --experiment-manifest ecr-poc-v5.json --run-id local-v5-diagnostic --source-commit $sourceCommit --output results\runs\vertex-adk-v5-local.json --no-update-latest
 ```
 
-The command validates frozen hashes first and writes per-role raw outputs, candidate seals, final fail-closed dispositions, and metrics by case type. See `docs/experiment-protocol.md` before interpreting results.
+Never reuse `vertex-adk.json` or any v1-v4 result path. The command validates frozen hashes first and writes per-role raw outputs, candidate seals, final fail-closed dispositions, and metrics by case type. The authoritative v5 execution path is the approval-gated Cloud Job below; see `docs/experiment-protocol-v5.md` before interpreting results.
 
 ## Provenance and scope
 
@@ -49,18 +50,18 @@ The command validates frozen hashes first and writes per-role raw outputs, candi
 - Selection rationale: `docs/data-selection.md`
 - Deployment preparation: `deploy/README.md`
 
-## Verifiable v4 Cloud batch
+## Verifiable v5 Cloud batch
 
-V4 preserves the immutable v3 experiment while correcting its independent UI audit findings. It reuses the same frozen cases and v2 role prompts, records an explicit v4 manifest in run provenance and the published pointer, and is frozen at `7b76bfaa74d743d3200421d0dad681d740f1ca1c`.
+V5 preserves every v1-v4 tag, result, and GCS object. Each external script requires the exact manifest, freeze tag, and source commit; prefix parameters keep v5 objects separate.
 
-After local validation, the implementation commit and `ecr-poc-v4-freeze` tag must identify the same remote commit. Each external phase retains its explicit approval switch:
+After local validation and explicit authorization, the implementation commit and requested freeze tag must identify the same remote commit. Replace `<commit>` only with that exact identity:
 
 ```powershell
-.\scripts\provision-gcp.ps1 -ProjectId iceu-687 -ApproveBillableResources
-.\scripts\deploy-cloud-run.ps1 -ProjectId iceu-687 -ApproveBillableResources
-.\scripts\run-cloud-evaluation.ps1 -ProjectId iceu-687 -ApproveBillableRun
-.\scripts\publish-cloud-evaluation.ps1 -ProjectId iceu-687 -RunId <validated-run-id> -ApprovePublish
-.\scripts\verify-cloud-run.ps1 -ProjectId iceu-687
+.\scripts\provision-gcp.ps1 -ProjectId iceu-687 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit <commit> -InputPrefix frozen/ecr-poc-v5 -ApproveBillableResources
+.\scripts\deploy-cloud-run.ps1 -ProjectId iceu-687 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit <commit> -InputPrefix frozen/ecr-poc-v5 -RunPrefix runs/v5 -PublishedObject published/v5/demo.json -ApproveBillableResources
+.\scripts\run-cloud-evaluation.ps1 -ProjectId iceu-687 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit <commit> -RunPrefix runs/v5 -ApproveBillableRun
+.\scripts\publish-cloud-evaluation.ps1 -ProjectId iceu-687 -RunId <validated-run-id> -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit <commit> -RunPrefix runs/v5 -PublishedObject published/v5/demo.json -ApprovePublish
+.\scripts\verify-cloud-run.ps1 -ProjectId iceu-687 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit <commit> -RunPrefix runs/v5 -PublishedObject published/v5/demo.json
 ```
 
-The browser never triggers a billable model run. It displays deterministic fixtures or the explicitly published GCS result. See `docs/experiment-protocol-v4.md` and `docs/results/experiment-report-v4.md` for the completed closure; the v3 report and failed UI audit remain historical evidence.
+The browser never triggers a billable model run. It displays deterministic fixtures or the explicitly published GCS result. See `docs/experiment-protocol-v5.md` and `docs/results/experiment-report-v5.md`; all earlier reports remain historical evidence.

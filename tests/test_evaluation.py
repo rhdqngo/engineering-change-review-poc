@@ -47,7 +47,10 @@ def test_fixture_evaluation_metrics() -> None:
     }
     assert run.metrics["overall"]["llm_review_success"]["successes"] == 12
     assert run.metrics["overall"]["false_alarm"]["cases"] == 0
-    assert run.metrics["overall"]["unsupported_output_blocked"] == 1
+    assert run.metrics["overall"]["unsupported_output_blocked"]["blocked"] == 1
+    assert run.metrics["overall"]["review_selection_added_value"][
+        "baseline_candidates"
+    ] == 108
     checkpoint = json.loads(
         Path(".runtime/test-evaluation.checkpoint.json").read_text(encoding="utf-8")
     )
@@ -120,6 +123,48 @@ def test_v4_fixture_run_records_manifest_and_unchanged_prompts() -> None:
     assert run.provenance.experiment_manifest == "ecr-poc-v4.json"
     assert run.provenance.prompt_version == "ecr-poc-prompts-v2"
     assert all(case.run_id == "test-v4-run" for case in run.cases)
+
+
+def test_v5_fixture_run_records_embedding_index_fingerprint() -> None:
+    run = asyncio.run(
+        evaluate(
+            provider_name="fixture",
+            embedding_provider="local",
+            output_path=Path(".runtime/test-evaluation-v5.json"),
+            experiment_manifest="ecr-poc-v5.json",
+            run_id="test-v5-run",
+            source_commit="WORKTREE-V5-TEST",
+            update_latest=False,
+        )
+    )
+    assert run.experiment_id == "ecr-poc-preregistered-v5"
+    assert run.provenance is not None
+    assert run.provenance.freeze_tag == "ecr-poc-v5-freeze"
+    assert run.provenance.embedding_index_manifest == "data/embeddings/ecr-poc-v5.json"
+    assert run.provenance.embedding_index_fingerprint == (
+        run.configuration["embedding_index_fingerprint"]
+    )
+    index_metadata = json.loads(
+        (Path("data/embeddings/ecr-poc-v5.json")).read_text(encoding="utf-8")
+    )
+    assert run.provenance.embedding_index_fingerprint == index_metadata[
+        "offline_reference"
+    ]["vector_fingerprint"]
+    assert {
+        case.embedding_index_fingerprint for case in run.cases
+    } == {run.provenance.embedding_index_fingerprint}
+
+
+def test_evaluation_refuses_to_overwrite_historical_result_paths() -> None:
+    with pytest.raises(RuntimeError, match="immutable v1-v4 historical result"):
+        asyncio.run(
+            evaluate(
+                provider_name="fixture",
+                embedding_provider="local",
+                output_path=Path("results/runs/vertex-adk-v4.json"),
+                update_latest=False,
+            )
+        )
 
 
 def test_checkpoint_failure_records_failure_and_never_writes_final() -> None:

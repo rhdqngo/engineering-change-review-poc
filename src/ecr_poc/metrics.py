@@ -14,7 +14,9 @@ def _safe_rate(numerator: int, denominator: int) -> float | None:
     return round(numerator / denominator, 6) if denominator else None
 
 
-def calculate_metrics(results: Sequence[PipelineResult]) -> dict[str, Any]:
+def calculate_metrics(
+    results: Sequence[PipelineResult], *, complete_overall: bool = False
+) -> dict[str, Any]:
     groups: dict[str, list[PipelineResult]] = defaultdict(list)
     for result in results:
         groups[result.case_type].append(result)
@@ -128,6 +130,40 @@ def calculate_metrics(results: Sequence[PipelineResult]) -> dict[str, Any]:
         for result in results
         for item in result.final_reviews
     )
+    overall_candidates = sum(len(result.candidates) for result in results)
+    overall_verified = sum(
+        item.status is FinalStatus.VERIFIED_REVIEW
+        for result in results
+        for item in result.final_reviews
+    )
+    overall_proposed = sum(
+        proposal.decision.value == "REVIEW"
+        for result in results
+        for proposal in result.proposed_reviews
+    )
+    overall_target_retained = sum(
+        set(result.expected_review_targets).issubset(
+            {
+                item.source_id
+                for item in result.final_reviews
+                if item.status is FinalStatus.VERIFIED_REVIEW
+            }
+        )
+        for result in mutation_results
+    )
+    overall_evidence_complete = sum(
+        bool(item.evidence and item.short_reason)
+        for result in results
+        for item in result.final_reviews
+        if item.status is FinalStatus.VERIFIED_REVIEW
+    )
+    overall_unsupported: int | dict[str, int] = blocked
+    if complete_overall:
+        overall_unsupported = {
+            "proposed_reviews": overall_proposed,
+            "blocked": blocked,
+            "final_verified_reviews": overall_verified,
+        }
     return {
         "definitions": {
             "retrieval_coverage": "Complete frozen expected target set present in Top-K.",
@@ -155,7 +191,23 @@ def calculate_metrics(results: Sequence[PipelineResult]) -> dict[str, Any]:
                 "eligible_controls": len(control_results),
                 "rate": _safe_rate(false_alarms, len(control_results)),
             },
-            "unsupported_output_blocked": blocked,
+            **(
+                {
+                    "review_selection_added_value": {
+                        "baseline_candidates": overall_candidates,
+                        "final_verified_reviews": overall_verified,
+                        "candidate_reduction_ratio": _safe_rate(
+                            overall_candidates - overall_verified,
+                            overall_candidates,
+                        ),
+                        "expected_target_retained_cases": overall_target_retained,
+                        "verified_reviews_with_evidence_and_reason": overall_evidence_complete,
+                    }
+                }
+                if complete_overall
+                else {}
+            ),
+            "unsupported_output_blocked": overall_unsupported,
         },
         "by_type": by_type,
     }

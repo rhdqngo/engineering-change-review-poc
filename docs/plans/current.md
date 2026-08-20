@@ -1,25 +1,26 @@
 # Current Project State
 
-status: complete
-phase: v4-published-and-verified
+status: blocked
+phase: v5-local-function-complete-awaiting-explicit-external-approval
 updated: 2026-08-20
 
 ## Objective
 
 Build a reproducible NASA cFS engineering-artifact PoC that measures evidence-grounded LLM review after a fixed Hybrid Retrieval Top-K.
 
-## Scope delivered
+## Active scope delivered locally
 
-- Pinned NASA `nasa/sample_app` v7.0.1 subset, clean baseline, 32 spans, and 18 cases split Direct 4 / Semantic 4 / Cross-Artifact 4 / Clean 3 / Benign 3.
+- Separate v5 case schema over the pinned NASA subset, clean baseline, 32 spans, and 18 cases split Direct 4 / Semantic 4 / Cross-Artifact 4 / Clean 3 / Benign 3. Every mutation binds its changed source, original/changed content, structured values, targets, and target-specific exact evidence.
 - One deterministic 50/50 BM25+dense Top-6 shared by Baseline and Proposed arms.
 - Exactly three Google ADK `LlmAgent` roles with timeouts, exact-span/source gates, cardinality reconciliation, independent verification, and fail-closed publication.
-- Version-aware v2/v3/v4 manifests, unchanged versioned prompts, remote freeze tags, and source/image/ADK/execution provenance.
+- Active v5 manifest/index provenance and offline-only v1-v4 compatibility validation; no historical manifest, result, tag, or object was changed.
 - Hardened GCS input/result store, per-case checkpoints, immutable results/failures, and an explicitly validated published pointer.
 - Private Cloud Run web service and single-task sequential Job using one image digest and dedicated least-privilege identities.
 - Structured allowlisted logs and approval-gated provisioning, deployment, billable execution, publication, and verification scripts.
-- GCS-authoritative API/UI with 503 fail-closed behavior, no browser billable control, latest-request-only rendering, stable narrow controls, and keyboard focus recovery.
+- Active-v5 API/UI with fixture/published authority labels, TTL/GCS-generation caching, separated liveness/readiness/integrity, latest-request-only fail-closed rendering, complete blocked-record inspection, and responsive keyboard paths.
+- Reproducible v5-q1 quality iteration that changes only query construction and records case-level failure classes plus before/after expected-target ranks.
 
-## Final accepted v4 result
+## Preserved historical v4 result
 
 | Item | Value |
 | --- | --- |
@@ -37,37 +38,37 @@ Build a reproducible NASA cFS engineering-artifact PoC that measures evidence-gr
 
 Acceptance is based on complete execution and evidence integrity, not target accuracy. The control false-alarm rate remains a material limitation and prevents an autonomous-use claim.
 
-## Verification state
+## V5 local verification state
 
 | Check | Result |
 | --- | --- |
-| Frozen data | passed; 18 source hashes, v1 freeze hashes, v2/v3/v4 manifests, unchanged v2 prompt hashes, 32 spans, 18 cases |
-| Tests | passed; 34 tests including version drift/compatibility, loading, timeout, cardinality, checkpoint, logging, publication, and GCS 503 paths |
-| Static/type/build | Ruff, mypy, five-script parsing, data validation, and `uv build` passed |
-| Raw result | tracked 352,461-byte object SHA and generation match GCS pointer and manifest |
-| Independent recomputation | 18 cases, metrics, arms, fingerprints, exact spans, reasons, and supported verifier verdicts all validate |
-| Cloud service / Job | same digest; 1 task / parallelism 1 / retries 0 / 1 CPU / 1 GiB / 1800 s |
-| IAM / access | dedicated identities and exact narrow roles; no Editor/Owner/Storage Admin; unauthenticated 403 |
-| Logging | one run ID links start, 18 terminal cases, checkpoints, and completion without prompt/raw evidence/credentials |
-| UI | independent deployed audit passes cold start, 28 rapid transitions, focus recovery, representative cases, 1440 × 900 and 390 × 844, ARIA/touch, and hidden rejected evidence |
+| Active and historical data | active v5 validation passes; separate v1-v4 data/run validation passes and returns the preserved v1-v4 run IDs |
+| Pipeline | local 18-case baseline and q1 runs complete; all within-run Baseline/Proposed candidate sequences and fingerprints match |
+| Fail closed | exact-span, off-Top-K, duplicate/missing decisions, verifier rejection/missing, and provider-error paths are covered by tests |
+| Metrics and comparison | complete overall/by-type metrics plus case-level classification and target-rank comparison generated |
+| Tests/static/build | 49 tests pass; Ruff, mypy, package sdist/wheel build, and all five PowerShell parsers pass |
+| GCP scripts | explicit manifest/tag/commit/prefix parameters and approval gates implemented; all five scripts parse |
+| UI | independent audit findings repaired; actual local desktop/narrow, 20 rapid transitions, blocked-record selection, catalog 503→retry, published failure/recovery, and narrow keyboard scroll pass. Actual Vertex v5 remains approval-gated |
+| Cloud v5 | not executed; explicit approval, exact commit, and freeze tag required |
 
 V1 remains hash-consistent historical evidence without an externally timed preregistration claim. V2 and v3 runs/tags/GCS versions remain immutable. The failed v3 UI audit is preserved rather than rewritten; v4 closes its three major findings under a distinct pre-run freeze.
 
 ## Related artifacts
 
 - Original plan: `docs/plans/LLM 기반 우주 Engineering Change Review.md`
-- Active protocol: `docs/experiment-protocol-v4.md`
-- Report: `docs/results/experiment-report-v4.md`
-- Raw result: `results/runs/vertex-adk-v4.json`
-- Result manifest: `results/runs/vertex-adk-v4.manifest.json`
+- Active protocol: `docs/experiment-protocol-v5.md`
+- Report: `docs/results/experiment-report-v5.md`
+- Local baseline: `results/runs/fixture-v5-baseline.json`
+- Local quality variant: `results/runs/fixture-v5-q1.json`
+- Machine comparison: `results/comparisons/v5-baseline-vs-v5-q1.json`
 - Deployment log: `docs/results/deployment-log.md`
 - Completion audit: `docs/completion-audit.md`
-- UI review: `docs/ui/reviews/2026-08-20-published-v4-docket.md`
+- UI review: `docs/ui/reviews/2026-08-20-v5-local-docket.md`
 - UI Foundation: `docs/ui/foundation.md` (provisional; validation does not promote governance status)
 
 ## Next checkpoint
 
-No implementation or operational blocker remains. Future work must use a separately versioned experiment; do not move existing freeze tags or overwrite immutable result objects.
+User authorization is required before any remaining action. Accepted scopes are Git-only (commit/push/tag), full external execution (Git plus Cloud Run/GCS/IAM/Vertex/publish), or GCP-excluded closure. Do not move or overwrite any v1-v4 identity.
 
 ## Update rules
 

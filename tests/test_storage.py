@@ -6,7 +6,17 @@ import pytest
 
 from ecr_poc.data import repository_root
 from ecr_poc.evaluation import evaluate
-from ecr_poc.storage import _validated_run
+from ecr_poc.metrics import calculate_metrics
+from ecr_poc.models import PipelineResult
+from ecr_poc.storage import _frozen_paths, _validated_run
+
+
+def test_v5_freeze_upload_includes_embedding_reproducibility_manifest() -> None:
+    paths = {
+        path.relative_to(repository_root()).as_posix()
+        for path in _frozen_paths(repository_root())
+    }
+    assert "data/embeddings/ecr-poc-v5.json" in paths
 
 
 def test_retained_v1_run_passes_publish_integrity_checks() -> None:
@@ -29,6 +39,23 @@ def test_publish_integrity_rejects_role_errors() -> None:
     payload = json.loads(path.read_text(encoding="utf-8"))
     payload["cases"][0]["role_traces"][0]["error"] = "simulated"
     with pytest.raises(RuntimeError, match="contains a role error"):
+        _validated_run(json.dumps(payload).encode("utf-8"))
+
+
+def test_publish_integrity_rejects_duplicate_verified_reviews() -> None:
+    path = repository_root() / "results" / "runs" / "fixture-v5-baseline.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    verified = next(
+        review
+        for review in payload["cases"][0]["final_reviews"]
+        if review["status"] == "VERIFIED_REVIEW"
+    )
+    payload["cases"][0]["final_reviews"].append(dict(verified))
+    payload["metrics"] = calculate_metrics(
+        [PipelineResult.model_validate(case) for case in payload["cases"]],
+        complete_overall=True,
+    )
+    with pytest.raises(RuntimeError, match="duplicate verified reviews"):
         _validated_run(json.dumps(payload).encode("utf-8"))
 
 
@@ -125,4 +152,22 @@ def test_cloud_v4_integrity_requires_explicit_manifest() -> None:
     payload = run.model_dump(mode="json")
     payload["provenance"]["experiment_manifest"] = None
     with pytest.raises(ValueError, match="require an experiment manifest"):
+        _validated_run(json.dumps(payload).encode("utf-8"))
+
+
+def test_v5_integrity_rejects_embedding_index_fingerprint_drift() -> None:
+    run = asyncio.run(
+        evaluate(
+            provider_name="fixture",
+            embedding_provider="local",
+            output_path=Path(".runtime/test-v5-fingerprint.json"),
+            experiment_manifest="ecr-poc-v5.json",
+            run_id="strict-v5-run",
+            source_commit="WORKTREE-V5-TEST",
+            update_latest=False,
+        )
+    )
+    payload = run.model_dump(mode="json")
+    payload["cases"][0]["embedding_index_fingerprint"] = "0" * 64
+    with pytest.raises(RuntimeError, match="embedding index fingerprint mismatch"):
         _validated_run(json.dumps(payload).encode("utf-8"))

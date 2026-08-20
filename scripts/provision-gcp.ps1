@@ -4,6 +4,17 @@ param(
 
     [string]$Region = "asia-northeast3",
 
+    [Parameter(Mandatory = $true)]
+    [string]$ExperimentManifest,
+
+    [Parameter(Mandatory = $true)]
+    [string]$FreezeTag,
+
+    [Parameter(Mandatory = $true)]
+    [string]$SourceCommit,
+
+    [string]$InputPrefix = "frozen/ecr-poc-v5",
+
     [switch]$ApproveBillableResources
 )
 
@@ -19,9 +30,25 @@ if (-not [string]::IsNullOrWhiteSpace($status)) {
 }
 $head = git rev-parse HEAD
 $originMain = git rev-parse origin/main
-$freezeTag = git rev-parse refs/tags/ecr-poc-v4-freeze
-if ($LASTEXITCODE -ne 0 -or $head -ne $originMain -or $head -ne $freezeTag) {
-    throw "HEAD, origin/main, and ecr-poc-v4-freeze must identify the same commit."
+$freezeCommit = git rev-parse "refs/tags/$FreezeTag"
+if (
+    $LASTEXITCODE -ne 0 -or
+    $head -ne $SourceCommit -or
+    $head -ne $originMain -or
+    $head -ne $freezeCommit
+) {
+    throw "HEAD, requested source commit, origin/main, and requested freeze tag must identify the same commit."
+}
+$manifestPath = Join-Path "data/experiments" $ExperimentManifest
+if ((Split-Path -Leaf $ExperimentManifest) -ne $ExperimentManifest -or -not (Test-Path -LiteralPath $manifestPath)) {
+    throw "ExperimentManifest must name an existing manifest leaf in data/experiments."
+}
+$experiment = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+if ($experiment.freeze_tag -ne $FreezeTag) {
+    throw "Experiment manifest freeze tag does not match -FreezeTag."
+}
+if ($InputPrefix -match '^frozen/ecr-poc-v[1-4](?:/|$)') {
+    throw "Refusing to write v5 inputs into a historical v1-v4 GCS prefix."
 }
 
 $projectNumber = gcloud projects describe $ProjectId --format "value(projectNumber)"
@@ -126,13 +153,9 @@ foreach ($runtimeAccount in @($webServiceAccount, $jobServiceAccount)) {
 }
 
 $env:UV_CACHE_DIR = ".cache\uv"
-uv run ecr-poc upload-freeze --bucket $bucketName --prefix frozen/ecr-poc-v4
+uv run ecr-poc upload-freeze --bucket $bucketName --prefix $InputPrefix
 if ($LASTEXITCODE -ne 0) {
-    throw "Immutable v4 input upload failed."
-}
-uv run ecr-poc upload-historical --bucket $bucketName
-if ($LASTEXITCODE -ne 0) {
-    throw "Historical v1 result upload failed."
+    throw "Immutable experiment input upload failed."
 }
 
 Write-Output "bucket=$bucketName"

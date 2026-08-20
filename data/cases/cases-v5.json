@@ -1,0 +1,186 @@
+{
+  "schema_version": 2,
+  "experiment_id": "ecr-poc-preregistered-v5",
+  "frozen_at": "2026-08-20",
+  "top_k": 6,
+  "selection_policy": "V5 case changes, targets, and target-specific exact evidence are fixed before v5 results are observed.",
+  "cases": [
+    {
+      "id": "DIR-01", "type": "direct", "scenario": "explicit_change",
+      "change_text": "Change the SAMPLE_APP NOOP command function code from 0 to 4.",
+      "changed_source_id": "CONFIG_FUNCTION_CODES",
+      "original_content": "SAMPLE_APP_FunctionCode_NOOP           = 0,",
+      "changed_content": "SAMPLE_APP_FunctionCode_NOOP           = 4,",
+      "change": {"artifact_or_subsystem": "SAMPLE_APP command interface", "parameter": "NOOP function code", "old_value": "0", "new_value": "4", "change_type": "value_change", "related_terms": ["NOOP", "function code", "command dispatch"]},
+      "expected_review_targets": ["CONFIG_FUNCTION_CODES"],
+      "expected_evidence_by_target": [{"source_id": "CONFIG_FUNCTION_CODES", "spans": ["SAMPLE_APP_FunctionCode_NOOP           = 0,"]}]
+    },
+    {
+      "id": "DIR-02", "type": "direct", "scenario": "explicit_change",
+      "change_text": "Widen DisplayParam ValU32 from uint32 to uint64.",
+      "changed_source_id": "CONFIG_DISPLAY_SCHEMA",
+      "original_content": "uint32 ValU32;",
+      "changed_content": "uint64 ValU32;",
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "ValU32 type", "old_value": "uint32", "new_value": "uint64", "change_type": "type_change", "related_terms": ["DisplayParam", "ValU32", "payload", "message definition"]},
+      "expected_review_targets": ["CONFIG_DISPLAY_SCHEMA"],
+      "expected_evidence_by_target": [{"source_id": "CONFIG_DISPLAY_SCHEMA", "spans": ["uint32 ValU32;"]}]
+    },
+    {
+      "id": "DIR-03", "type": "direct", "scenario": "explicit_change",
+      "change_text": "Raise the ExampleTable Int1 maximum from 10 to 20.",
+      "changed_source_id": "CONFIG_RUNTIME_LIMITS",
+      "original_content": "#define DEFAULT_SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX 10",
+      "changed_content": "#define DEFAULT_SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX 20",
+      "change": {"artifact_or_subsystem": "ExampleTable", "parameter": "Int1 maximum", "old_value": "10", "new_value": "20", "change_type": "range_change", "related_terms": ["table", "Int1", "maximum", "validation"]},
+      "expected_review_targets": ["CONFIG_RUNTIME_LIMITS"],
+      "expected_evidence_by_target": [{"source_id": "CONFIG_RUNTIME_LIMITS", "spans": ["#define DEFAULT_SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX 10"]}]
+    },
+    {
+      "id": "DIR-04", "type": "direct", "scenario": "explicit_change",
+      "change_text": "Increase the Display Value string parameter length from 10 to 24.",
+      "changed_source_id": "CONFIG_STRING_LENGTH",
+      "original_content": "#define DEFAULT_SAMPLE_APP_MISSION_STRING_VAL_LEN 10",
+      "changed_content": "#define DEFAULT_SAMPLE_APP_MISSION_STRING_VAL_LEN 24",
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "string parameter length", "old_value": "10", "new_value": "24", "change_type": "capacity_change", "related_terms": ["Display Value", "string", "ValStr", "length"]},
+      "expected_review_targets": ["CONFIG_STRING_LENGTH"],
+      "expected_evidence_by_target": [{"source_id": "CONFIG_STRING_LENGTH", "spans": ["#define DEFAULT_SAMPLE_APP_MISSION_STRING_VAL_LEN 10"]}]
+    },
+    {
+      "id": "SEM-01", "type": "semantic", "scenario": "semantic_change",
+      "change_text": "The reset operation shall clear only rejected-command history and preserve the accepted-command total.",
+      "changed_source_id": "DESIGN_RESET",
+      "original_content": "SAMPLE_APP_Data.CommandCounter      = 0;",
+      "changed_content": "/* Preserve SAMPLE_APP_Data.CommandCounter. */",
+      "change": {"artifact_or_subsystem": "command accounting", "parameter": "reset semantics", "old_value": "clear all command counters", "new_value": "clear rejected only", "change_type": "behavior_change", "related_terms": ["reset", "accepted commands", "rejected commands", "telemetry counters"]},
+      "expected_review_targets": ["DESIGN_RESET"],
+      "expected_evidence_by_target": [{"source_id": "DESIGN_RESET", "spans": ["SAMPLE_APP_Data.CommandCounter      = 0;"]}]
+    },
+    {
+      "id": "SEM-02", "type": "semantic", "scenario": "semantic_change",
+      "change_text": "Housekeeping shall stop publishing the rejected-ground-command total; only successfully handled command activity remains in telemetry.",
+      "changed_source_id": "DESIGN_SEND_HK",
+      "original_content": "SAMPLE_APP_Data.HkTlm.Payload.CommandErrorCounter = SAMPLE_APP_Data.CommandErrorCounter;",
+      "changed_content": "/* CommandErrorCounter is no longer published in housekeeping. */",
+      "change": {"artifact_or_subsystem": "housekeeping telemetry", "parameter": "reported command totals", "old_value": "accepted and rejected totals", "new_value": "accepted total only", "change_type": "field_removal", "related_terms": ["housekeeping", "rejected command", "command error", "telemetry"]},
+      "expected_review_targets": ["DESIGN_SEND_HK"],
+      "expected_evidence_by_target": [{"source_id": "DESIGN_SEND_HK", "spans": ["SAMPLE_APP_Data.HkTlm.Payload.CommandErrorCounter = SAMPLE_APP_Data.CommandErrorCounter;"]}]
+    },
+    {
+      "id": "SEM-03", "type": "semantic", "scenario": "semantic_change",
+      "change_text": "The signed DisplayParam argument shall accept a 32-bit signed range instead of the current 16-bit range.",
+      "changed_source_id": "DESIGN_DISPLAY",
+      "original_content": "(int)Msg->Payload.ValI16,",
+      "changed_content": "(int32_t)Msg->Payload.ValI32,",
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "signed argument range", "old_value": "16-bit signed", "new_value": "32-bit signed", "change_type": "type_change", "related_terms": ["signed parameter", "ValI16", "display event", "formatting"]},
+      "expected_review_targets": ["DESIGN_DISPLAY"],
+      "expected_evidence_by_target": [{"source_id": "DESIGN_DISPLAY", "spans": ["(int)Msg->Payload.ValI16,"]}]
+    },
+    {
+      "id": "SEM-04", "type": "semantic", "scenario": "semantic_change",
+      "change_text": "A health-check invocation must be observational and leave operational command totals unchanged.",
+      "changed_source_id": "DESIGN_NOOP",
+      "original_content": "SAMPLE_APP_Data.CommandCounter++;",
+      "changed_content": "/* Observational NOOP does not change CommandCounter. */",
+      "change": {"artifact_or_subsystem": "NOOP health check", "parameter": "counter side effect", "old_value": "increments accepted command total", "new_value": "no counter side effect", "change_type": "behavior_change", "related_terms": ["NOOP", "health check", "command counter", "observational"]},
+      "expected_review_targets": ["DESIGN_NOOP"],
+      "expected_evidence_by_target": [{"source_id": "DESIGN_NOOP", "spans": ["SAMPLE_APP_Data.CommandCounter++;"]}]
+    },
+    {
+      "id": "XART-01", "type": "cross_artifact", "scenario": "test_impact",
+      "change_text": "Increase ValStr capacity from 10 to 32 characters and require verification at the new maximum boundary.",
+      "changed_source_id": "CONFIG_STRING_LENGTH",
+      "original_content": "#define DEFAULT_SAMPLE_APP_MISSION_STRING_VAL_LEN 10",
+      "changed_content": "#define DEFAULT_SAMPLE_APP_MISSION_STRING_VAL_LEN 32",
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "ValStr verified capacity", "old_value": "10 characters", "new_value": "32 characters including boundary verification", "change_type": "interface_and_verification_change", "related_terms": ["ValStr", "capacity", "boundary", "coverage test"]},
+      "expected_review_targets": ["TEST_DISPLAY"],
+      "expected_evidence_by_target": [{"source_id": "TEST_DISPLAY", "spans": ["snprintf(TestMsg.Payload.ValStr, sizeof(TestMsg.Payload.ValStr), \"Hello\");"]}]
+    },
+    {
+      "id": "XART-02", "type": "cross_artifact", "scenario": "design_impact",
+      "change_text": "The application shall manage two ExampleTable instances instead of one.",
+      "changed_source_id": "CONFIG_RUNTIME_LIMITS",
+      "original_content": "#define DEFAULT_SAMPLE_APP_PLATFORM_NUMBER_OF_TABLES 1",
+      "changed_content": "#define DEFAULT_SAMPLE_APP_PLATFORM_NUMBER_OF_TABLES 2",
+      "change": {"artifact_or_subsystem": "table management", "parameter": "ExampleTable instance count", "old_value": "1", "new_value": "2", "change_type": "cardinality_change", "related_terms": ["two tables", "registration", "table handles", "initialization"]},
+      "expected_review_targets": ["DESIGN_INIT_TABLE"],
+      "expected_evidence_by_target": [{"source_id": "DESIGN_INIT_TABLE", "spans": ["status = CFE_TBL_Register(&SAMPLE_APP_Data.TblHandles[0],"]}]
+    },
+    {
+      "id": "XART-03", "type": "cross_artifact", "scenario": "verification_impact",
+      "change_text": "ExampleTable acceptance shall additionally reject Int2 values above 50, with a boundary test for that rule.",
+      "changed_source_id": "CONFIG_TABLE_SCHEMA",
+      "original_content": "uint16 Int2;",
+      "changed_content": "uint16 Int2; /* accepted range: 0..50 */",
+      "change": {"artifact_or_subsystem": "ExampleTable validation", "parameter": "Int2 acceptance rule", "old_value": "no Int2 upper-bound rule", "new_value": "Int2 <= 50 with test", "change_type": "validation_change", "related_terms": ["Int2", "table acceptance", "upper bound", "validation test"]},
+      "expected_review_targets": ["DESIGN_TABLE_VALIDATION", "TEST_TABLE_VALIDATION"],
+      "expected_evidence_by_target": [
+        {"source_id": "DESIGN_TABLE_VALIDATION", "spans": ["if (TblDataPtr->Int1 > SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX)"]},
+        {"source_id": "TEST_TABLE_VALIDATION", "spans": ["TestTblData.Int1 = 1 + SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX;"]}
+      ]
+    },
+    {
+      "id": "XART-04", "type": "cross_artifact", "scenario": "error_recovery",
+      "change_text": "A transient Software Bus receive failure shall be recoverable; the application must continue its run loop after logging the error.",
+      "changed_source_id": "DESIGN_RUN_LOOP",
+      "original_content": "SAMPLE APP: SB Pipe Read Error, App Will Exit",
+      "changed_content": "SAMPLE APP: transient SB Pipe Read Error, App Will Continue",
+      "change": {"artifact_or_subsystem": "SAMPLE_APP run loop", "parameter": "receive-error recovery", "old_value": "terminate application", "new_value": "log and continue", "change_type": "error_handling_change", "related_terms": ["Software Bus", "receive failure", "run loop", "recovery"]},
+      "expected_review_targets": ["DESIGN_RUN_LOOP"],
+      "expected_evidence_by_target": [{"source_id": "DESIGN_RUN_LOOP", "spans": ["SAMPLE APP: SB Pipe Read Error, App Will Exit"]}]
+    },
+    {
+      "id": "CLN-01", "type": "clean", "scenario": "clean_baseline",
+      "change_text": "Inspect the unmodified v7.0.1 SAMPLE_APP command interface baseline.",
+      "changed_source_id": "CONFIG_FUNCTION_CODES",
+      "original_content": "SAMPLE_APP_FunctionCode_NOOP           = 0,",
+      "changed_content": "SAMPLE_APP_FunctionCode_NOOP           = 0,",
+      "change": {"artifact_or_subsystem": "SAMPLE_APP command interface", "parameter": "baseline state", "old_value": null, "new_value": null, "change_type": "no_change", "related_terms": ["baseline", "command interface"]},
+      "expected_review_targets": [], "expected_evidence_by_target": []
+    },
+    {
+      "id": "CLN-02", "type": "clean", "scenario": "restore",
+      "change_text": "Restore DisplayParam function code from an experimental value 4 back to the v7.0.1 baseline value 3.",
+      "changed_source_id": "CONFIG_FUNCTION_CODES",
+      "original_content": "SAMPLE_APP_FunctionCode_DISPLAY_PARAM  = 4,",
+      "changed_content": "SAMPLE_APP_FunctionCode_DISPLAY_PARAM  = 3,",
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "function code", "old_value": "4", "new_value": "3", "change_type": "restore", "related_terms": ["DisplayParam", "function code", "baseline"]},
+      "expected_review_targets": [], "expected_evidence_by_target": []
+    },
+    {
+      "id": "CLN-03", "type": "clean", "scenario": "clean_baseline",
+      "change_text": "Retain the command pipe depth at the v7.0.1 baseline value of 32.",
+      "changed_source_id": "CONFIG_RUNTIME_LIMITS",
+      "original_content": "#define DEFAULT_SAMPLE_APP_PLATFORM_PIPE_DEPTH 32",
+      "changed_content": "#define DEFAULT_SAMPLE_APP_PLATFORM_PIPE_DEPTH 32",
+      "change": {"artifact_or_subsystem": "command pipe", "parameter": "depth", "old_value": "32", "new_value": "32", "change_type": "no_change", "related_terms": ["pipe depth", "baseline"]},
+      "expected_review_targets": [], "expected_evidence_by_target": []
+    },
+    {
+      "id": "BEN-01", "type": "benign", "scenario": "representation_only",
+      "change_text": "Describe ValU32 as an unsigned 32-bit integer instead of a 32 bit unsigned integer; storage and range are unchanged.",
+      "changed_source_id": "CONFIG_DISPLAY_SCHEMA",
+      "original_content": "uint32 ValU32;",
+      "changed_content": "uint32 ValU32; /* unsigned 32-bit integer */",
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "ValU32 wording", "old_value": "32 bit unsigned integer", "new_value": "unsigned 32-bit integer", "change_type": "representation_only", "related_terms": ["ValU32", "uint32", "wording"]},
+      "expected_review_targets": [], "expected_evidence_by_target": []
+    },
+    {
+      "id": "BEN-02", "type": "benign", "scenario": "equivalent_expression",
+      "change_text": "Express the string length 10 as 5 * 2; the resulting capacity remains 10.",
+      "changed_source_id": "CONFIG_STRING_LENGTH",
+      "original_content": "#define DEFAULT_SAMPLE_APP_MISSION_STRING_VAL_LEN 10",
+      "changed_content": "#define DEFAULT_SAMPLE_APP_MISSION_STRING_VAL_LEN (5 * 2)",
+      "change": {"artifact_or_subsystem": "DisplayParam command", "parameter": "string length expression", "old_value": "10", "new_value": "5 * 2", "change_type": "equivalent_expression", "related_terms": ["string length", "equivalent", "capacity"]},
+      "expected_review_targets": [], "expected_evidence_by_target": []
+    },
+    {
+      "id": "BEN-03", "type": "benign", "scenario": "equivalent_expression",
+      "change_text": "Express the ExampleTable Int1 limit as hexadecimal 0x0A instead of decimal 10; the numeric limit is unchanged.",
+      "changed_source_id": "CONFIG_RUNTIME_LIMITS",
+      "original_content": "#define DEFAULT_SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX 10",
+      "changed_content": "#define DEFAULT_SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX 0x0A",
+      "change": {"artifact_or_subsystem": "ExampleTable", "parameter": "Int1 maximum representation", "old_value": "10", "new_value": "0x0A", "change_type": "equivalent_expression", "related_terms": ["Int1", "maximum", "hexadecimal", "equivalent"]},
+      "expected_review_targets": [], "expected_evidence_by_target": []
+    }
+  ]
+}

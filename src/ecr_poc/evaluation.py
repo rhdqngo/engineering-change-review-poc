@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .data import (
+    DEFAULT_EXPERIMENT_MANIFEST,
     load_artifacts,
     load_cases,
     load_experiment_manifest,
@@ -15,7 +16,6 @@ from .data import (
     sha256_file,
     validate_all,
     validate_experiment_manifest,
-    validate_freeze,
 )
 from .metrics import calculate_metrics
 from .models import EvaluationRun, RunProvenance
@@ -25,6 +25,13 @@ from .prompts import PromptBundle, load_prompt_bundle
 from .providers import AdkVertexProvider, FixtureProvider, ReviewProvider
 from .retrieval import HybridRetriever, build_embedder
 from .storage import LocalRunStore, RunStore
+
+_PROTECTED_HISTORICAL_RESULTS = {
+    "results/runs/vertex-adk.json",
+    "results/runs/vertex-adk-v2.json",
+    "results/runs/vertex-adk-v3.json",
+    "results/runs/vertex-adk-v4.json",
+}
 
 
 def _now() -> str:
@@ -89,10 +96,26 @@ async def evaluate(
     update_latest: bool = True,
 ) -> EvaluationRun:
     root = root or repository_root()
+    run_id = run_id or str(uuid.uuid4())
+    if run_store is None:
+        if output_path is None:
+            output_path = root / "results" / "runs" / f"{run_id}.json"
+        elif not output_path.is_absolute():
+            output_path = root / output_path
+        protected_paths = {
+            (root / relative).resolve() for relative in _PROTECTED_HISTORICAL_RESULTS
+        }
+        if output_path.resolve() in protected_paths:
+            raise RuntimeError(
+                "Refusing to overwrite an immutable v1-v4 historical result path"
+            )
     validate_all(root)
-    freeze_hashes = validate_freeze(root)
-    base_experiment_id, top_k, cases = load_cases(root)
-    experiment_id = base_experiment_id
+    selected_manifest = experiment_manifest or DEFAULT_EXPERIMENT_MANIFEST
+    freeze_hashes = validate_experiment_manifest(root, selected_manifest)
+    base_experiment_id, top_k, cases = load_cases(root, experiment_manifest)
+    experiment_id = (
+        base_experiment_id if experiment_manifest else "ecr-poc-fixture-v5"
+    )
     provenance: RunProvenance | None = None
     manifest: dict[str, Any] | None = None
     prompt_file = "data/prompts/ecr-poc-v2.json"
@@ -127,19 +150,31 @@ async def evaluate(
         )
     artifacts = load_artifacts(root)
     embedder = build_embedder(embedding_provider)
-    retriever = HybridRetriever(artifacts, embedder)
+    query_version = (
+        str(manifest["retrieval"].get("query_version", "structured-change-v1"))
+        if manifest
+        else "structured-change-v1"
+    )
+    retriever = HybridRetriever(artifacts, embedder, query_version=query_version)
+    if (
+        provenance is not None
+        and manifest is not None
+        and isinstance(manifest.get("embedding_index_file"), str)
+    ):
+        embedding_index_manifest = str(manifest["embedding_index_file"])
+        provenance.embedding_index_manifest = embedding_index_manifest
+        provenance.embedding_index_manifest_sha256 = sha256_file(
+            root / embedding_index_manifest
+        )
+        provenance.embedding_index_fingerprint = retriever.embedding_index_fingerprint
     provider = build_provider(
         provider_name,
         inject_unsupported=inject_unsupported,
         prompt_bundle=prompt_bundle,
     )
     started_at = _now()
-    run_id = run_id or str(uuid.uuid4())
     if run_store is None:
-        if output_path is None:
-            output_path = root / "results" / "runs" / f"{run_id}.json"
-        elif not output_path.is_absolute():
-            output_path = root / output_path
+        assert output_path is not None
         run_store = LocalRunStore(
             output_path,
             update_latest=update_latest,
@@ -267,6 +302,8 @@ async def evaluate(
             "top_k": top_k,
             "lexical": "BM25(k1=1.5,b=0.75)",
             "fusion": {"bm25": 0.5, "embedding": 0.5, "normalization": "min-max"},
+            "query_version": query_version,
+            "embedding_index_fingerprint": retriever.embedding_index_fingerprint,
             "temperature": 0,
             "role_timeout_seconds": timeout,
             "fail_closed": True,
@@ -275,7 +312,13 @@ async def evaluate(
             "inject_unsupported_fixture": inject_unsupported,
         },
         cases=case_results,
-        metrics=calculate_metrics(case_results),
+        metrics=calculate_metrics(
+            case_results,
+            complete_overall=(
+                experiment_id.startswith("ecr-poc-preregistered-v5")
+                or experiment_id == "ecr-poc-fixture-v5"
+            ),
+        ),
         provenance=provenance,
     )
     try:

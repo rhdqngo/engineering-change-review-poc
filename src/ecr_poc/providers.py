@@ -190,11 +190,9 @@ class FixtureProvider:
                     (line.strip() for line in candidate.content.splitlines() if line.strip()),
                     candidate.content,
                 )
-                if (
-                    case.expected_evidence
-                    and case.expected_evidence.source_id == candidate.source_id
-                ):
-                    evidence = case.expected_evidence.span
+                expected_evidence = case.evidence_for(candidate.source_id)
+                if expected_evidence:
+                    evidence = expected_evidence
                 reviews.append(
                     ReviewItem(
                         source_id=candidate.source_id,

@@ -9,8 +9,13 @@ from pathlib import Path
 
 import uvicorn
 
-from .data import validate_all
+from .data import (
+    DEFAULT_EXPERIMENT_MANIFEST,
+    validate_all,
+    validate_historical_versions,
+)
 from .evaluation import evaluate
+from .quality import write_comparison
 from .storage import (
     GcsRunStore,
     load_published_run,
@@ -18,6 +23,7 @@ from .storage import (
     publish_run,
     seed_historical_pointer,
     upload_frozen_tree,
+    validate_historical_runs,
 )
 
 
@@ -37,6 +43,10 @@ def _parser() -> argparse.ArgumentParser:
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
     subcommands.add_parser("validate-data", help="verify frozen cases and NASA source hashes")
+    subcommands.add_parser(
+        "validate-historical",
+        help="offline-only validation of immutable v1-v4 data and manifests",
+    )
     evaluation = subcommands.add_parser("evaluate", help="run all pre-registered cases")
     evaluation.add_argument("--provider", choices=["fixture", "vertex-adk"], required=True)
     evaluation.add_argument("--embedding", choices=["local", "vertex"], required=True)
@@ -49,8 +59,19 @@ def _parser() -> argparse.ArgumentParser:
     evaluation.add_argument(
         "--gcs-output-uri", help="GCS run-parent prefix, for example gs://bucket/runs"
     )
+    comparison = subcommands.add_parser(
+        "compare-results", help="classify and compare a frozen baseline and one-variable variant"
+    )
+    comparison.add_argument("--baseline", type=Path, required=True)
+    comparison.add_argument("--variant", type=Path, required=True)
+    comparison.add_argument("--output", type=Path, required=True)
     evaluation.add_argument("--cloud-execution")
     evaluation.add_argument("--container-image-digest")
+    evaluation.add_argument(
+        "--no-update-latest",
+        action="store_true",
+        help="write the named result without changing results/latest.json",
+    )
     cloud_evaluation = subcommands.add_parser(
         "cloud-evaluate", help="run a frozen versioned experiment from and to GCS"
     )
@@ -58,13 +79,13 @@ def _parser() -> argparse.ArgumentParser:
     cloud_evaluation.add_argument("--embedding", default="vertex")
     cloud_evaluation.add_argument(
         "--experiment-manifest",
-        default=os.environ.get("ECR_EXPERIMENT_MANIFEST", "ecr-poc-v4.json"),
+        default=os.environ.get("ECR_EXPERIMENT_MANIFEST", DEFAULT_EXPERIMENT_MANIFEST),
     )
     upload_freeze = subcommands.add_parser(
         "upload-freeze", help="immutably upload frozen inputs to GCS"
     )
     upload_freeze.add_argument("--bucket", required=True)
-    upload_freeze.add_argument("--prefix", default="frozen/ecr-poc-v4")
+    upload_freeze.add_argument("--prefix", default="frozen/ecr-poc-v5")
     upload_history = subcommands.add_parser(
         "upload-historical", help="immutably upload the retained v1 result to GCS"
     )
@@ -80,10 +101,13 @@ def _parser() -> argparse.ArgumentParser:
     publish.add_argument("--run-id", required=True)
     publish.add_argument("--source-commit", required=True)
     publish.add_argument("--experiment-manifest", required=True)
+    publish.add_argument("--run-prefix", default="runs/v5")
+    publish.add_argument("--published-object", default="published/v5/demo.json")
     verify = subcommands.add_parser(
         "verify-published", help="validate the published GCS evaluation pointer"
     )
     verify.add_argument("--bucket", required=True)
+    verify.add_argument("--published-object", default="published/v5/demo.json")
     serve = subcommands.add_parser("serve", help="run the Demo UI/API")
     serve.add_argument("--host", default="0.0.0.0")
     serve.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8080")))
@@ -94,6 +118,25 @@ def main() -> None:
     args = _parser().parse_args()
     if args.command == "validate-data":
         print(json.dumps(validate_all(), indent=2))
+        return
+    if args.command == "validate-historical":
+        print(
+            json.dumps(
+                {
+                    "data": validate_historical_versions(),
+                    "runs": validate_historical_runs(),
+                },
+                indent=2,
+            )
+        )
+        return
+    if args.command == "compare-results":
+        print(
+            json.dumps(
+                write_comparison(args.baseline, args.variant, args.output),
+                indent=2,
+            )
+        )
         return
     if args.command == "evaluate":
         if bool(args.gcs_input_uri) != bool(args.gcs_output_uri):
@@ -136,6 +179,7 @@ def main() -> None:
                     source_commit=args.source_commit,
                     cloud_execution=args.cloud_execution,
                     container_image_digest=args.container_image_digest,
+                    update_latest=not args.no_update_latest,
                 )
             )
         print(json.dumps(run.metrics, indent=2))
@@ -144,11 +188,15 @@ def main() -> None:
         bucket = os.environ["ECR_GCS_BUCKET"]
         run_id = os.environ["ECR_RUN_ID"]
         source_commit = os.environ["ECR_SOURCE_COMMIT"]
-        input_prefix = os.environ.get("ECR_GCS_INPUT_PREFIX", "frozen/ecr-poc-v4")
+        input_prefix = os.environ.get("ECR_GCS_INPUT_PREFIX", "frozen/ecr-poc-v5")
         with tempfile.TemporaryDirectory(prefix="ecr-poc-input-") as temporary:
             root = Path(temporary)
             materialize_gcs_prefix(bucket, input_prefix, root)
-            store = GcsRunStore(bucket, run_id)
+            store = GcsRunStore(
+                bucket,
+                run_id,
+                prefix=os.environ.get("ECR_GCS_RUN_PREFIX", "runs/v5"),
+            )
             run = asyncio.run(
                 evaluate(
                     provider_name=args.provider,
@@ -193,11 +241,13 @@ def main() -> None:
                 args.run_id,
                 args.source_commit,
                 args.experiment_manifest,
+                run_prefix=args.run_prefix,
+                published_object_name=args.published_object,
             ).model_dump_json(indent=2)
         )
         return
     if args.command == "verify-published":
-        run, pointer = load_published_run(args.bucket)
+        run, pointer = load_published_run(args.bucket, args.published_object)
         print(
             json.dumps(
                 {

@@ -35,6 +35,21 @@ def test_baseline_and_proposed_reuse_identical_top_k() -> None:
     )
 
 
+def test_all_18_cases_share_candidate_sequence_object_and_fingerprint() -> None:
+    _, top_k, cases = load_cases()
+    retriever = HybridRetriever(load_artifacts(), DeterministicHashEmbedder())
+    results = [
+        asyncio.run(run_case(case, retriever, FixtureProvider(), top_k))
+        for case in cases
+    ]
+    assert len(results) == 18
+    for result in results:
+        candidate_ids = [candidate.source_id for candidate in result.candidates]
+        assert result.baseline_candidate_source_ids == candidate_ids
+        assert result.proposed_candidate_source_ids == candidate_ids
+        assert result.embedding_index_fingerprint == retriever.embedding_index_fingerprint
+
+
 def test_non_exact_evidence_is_blocked_before_verifier() -> None:
     case, top_k, retriever = setup_case("DIR-01")
     result = asyncio.run(
@@ -190,6 +205,12 @@ def test_duplicate_and_external_reviewer_decisions_are_fail_closed() -> None:
         item.evidence is None
         for item in result.final_reviews
         if item.blocked_stage in {"schema_duplicate_source", "source_not_in_fixed_top_k"}
+    )
+    duplicate_source = result.proposed_reviews[0].source_id
+    assert not any(
+        item.source_id == duplicate_source
+        and item.status is FinalStatus.VERIFIED_REVIEW
+        for item in result.final_reviews
     )
 
 
