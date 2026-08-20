@@ -1,0 +1,25 @@
+[project]
+name = "ecr-poc"
+version = "0.1.0"
+description = "Evidence-grounded engineering change review PoC"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "google-adk[gcp]>=2.0.0,<3.0.0",
+    "uvicorn[standard]>=0.35,<1.0",
+]
+
+[project.scripts]
+ecr-poc = "ecr_poc:main"
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.17,<2",
+    "playwright>=1.54,<2",
+    "pytest>=9,<10",
+    "ruff>=0.12,<1",
+]

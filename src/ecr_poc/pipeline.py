@@ -1,0 +1,243 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import uuid
+from collections import Counter
+from collections.abc import Sequence
+from datetime import UTC, datetime
+
+from .models import (
+    CaseDefinition,
+    Decision,
+    FinalReview,
+    FinalStatus,
+    PipelineResult,
+    RetrievedCandidate,
+    ReviewBatch,
+    ReviewItem,
+    RoleTrace,
+    VerificationBatch,
+)
+from .providers import ReviewProvider
+from .retrieval import HybridRetriever, candidate_fingerprint
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _same_candidates(
+    baseline: Sequence[RetrievedCandidate], proposed: Sequence[RetrievedCandidate]
+) -> bool:
+    return candidate_fingerprint(baseline) == candidate_fingerprint(proposed)
+
+
+async def run_case(
+    case: CaseDefinition,
+    retriever: HybridRetriever,
+    provider: ReviewProvider,
+    top_k: int,
+) -> PipelineResult:
+    started_at = _now()
+    role_traces: list[RoleTrace] = []
+    structured_change, analyst_trace = await provider.analyze(case)
+    role_traces.append(analyst_trace)
+
+    # This object is intentionally shared by both arms. A copied/re-ranked list
+    # is not created for Proposed.
+    candidates = retriever.retrieve(structured_change, top_k)
+    baseline_candidates = candidates
+    proposed_candidates = candidates
+    if not _same_candidates(baseline_candidates, proposed_candidates):
+        raise RuntimeError("Baseline and Proposed candidate fingerprints differ")
+
+    try:
+        review_batch, review_trace = await provider.review(
+            case, structured_change, proposed_candidates
+        )
+        role_traces.append(review_trace)
+    except Exception as error:  # noqa: BLE001 - review failures must fail closed
+        review_batch = ReviewBatch(
+            reviews=[
+                ReviewItem(
+                    source_id=candidate.source_id,
+                    decision=Decision.INSUFFICIENT_EVIDENCE,
+                    short_reason="Engineering Review provider failed; no advice exposed.",
+                )
+                for candidate in proposed_candidates
+            ]
+        )
+        role_traces.append(
+            RoleTrace(
+                role="engineering_review",
+                provider=provider.name,
+                model=provider.model_name,
+                raw_output="",
+                parsed=review_batch.model_dump(mode="json"),
+                error=f"{type(error).__name__}: {error}",
+            )
+        )
+    candidate_by_id = {candidate.source_id: candidate for candidate in candidates}
+    seen: set[str] = set()
+    valid_for_verifier: list[ReviewItem] = []
+    final_reviews: list[FinalReview] = []
+
+    for proposal in review_batch.reviews:
+        if proposal.source_id in seen:
+            final_reviews.append(
+                FinalReview(
+                    source_id=proposal.source_id,
+                    status=FinalStatus.REJECTED_UNSUPPORTED,
+                    short_reason=proposal.short_reason,
+                    blocked_stage="schema_duplicate_source",
+                )
+            )
+            continue
+        seen.add(proposal.source_id)
+        candidate = candidate_by_id.get(proposal.source_id)
+        if candidate is None:
+            final_reviews.append(
+                FinalReview(
+                    source_id=proposal.source_id,
+                    status=FinalStatus.REJECTED_UNSUPPORTED,
+                    short_reason=proposal.short_reason,
+                    blocked_stage="source_not_in_fixed_top_k",
+                )
+            )
+            continue
+        if proposal.decision is Decision.REVIEW:
+            if not proposal.evidence or proposal.evidence not in candidate.content:
+                final_reviews.append(
+                    FinalReview(
+                        source_id=proposal.source_id,
+                        status=FinalStatus.REJECTED_UNSUPPORTED,
+                        short_reason=proposal.short_reason,
+                        blocked_stage="deterministic_exact_span",
+                    )
+                )
+                continue
+            valid_for_verifier.append(proposal)
+        elif proposal.decision is Decision.NO_REVIEW:
+            final_reviews.append(
+                FinalReview(
+                    source_id=proposal.source_id,
+                    status=FinalStatus.NO_REVIEW,
+                    short_reason=proposal.short_reason,
+                )
+            )
+        else:
+            final_reviews.append(
+                FinalReview(
+                    source_id=proposal.source_id,
+                    status=FinalStatus.INSUFFICIENT_EVIDENCE,
+                    evidence=proposal.evidence,
+                    short_reason=proposal.short_reason,
+                )
+            )
+
+    verification = VerificationBatch(verifications=[])
+    if valid_for_verifier:
+        try:
+            verification, verifier_trace = await provider.verify(
+                case,
+                structured_change,
+                valid_for_verifier,
+                proposed_candidates,
+            )
+            role_traces.append(verifier_trace)
+        except Exception as error:  # noqa: BLE001 - provider failures must fail closed
+            role_traces.append(
+                RoleTrace(
+                    role="evidence_verifier",
+                    provider=provider.name,
+                    model=provider.model_name,
+                    raw_output="",
+                    error=f"{type(error).__name__}: {error}",
+                )
+            )
+
+    verification_counts = Counter(item.source_id for item in verification.verifications)
+    verification_by_id = {item.source_id: item for item in verification.verifications}
+    for proposal in valid_for_verifier:
+        verdict = verification_by_id.get(proposal.source_id)
+        if verification_counts[proposal.source_id] == 1 and verdict and verdict.supported:
+            final_reviews.append(
+                FinalReview(
+                    source_id=proposal.source_id,
+                    status=FinalStatus.VERIFIED_REVIEW,
+                    evidence=proposal.evidence,
+                    short_reason=proposal.short_reason,
+                    verifier_reason=verdict.reason,
+                )
+            )
+        else:
+            final_reviews.append(
+                FinalReview(
+                    source_id=proposal.source_id,
+                    status=FinalStatus.REJECTED_UNSUPPORTED,
+                    short_reason=proposal.short_reason,
+                    verifier_reason=(
+                        "Verifier returned duplicate verdicts"
+                        if verification_counts[proposal.source_id] > 1
+                        else verdict.reason
+                        if verdict
+                        else "Verifier returned no verdict"
+                    ),
+                    blocked_stage="independent_verifier",
+                )
+            )
+
+    final_reviews.sort(
+        key=lambda item: (
+            next(
+                (
+                    candidate.rank
+                    for candidate in candidates
+                    if candidate.source_id == item.source_id
+                ),
+                top_k + 1,
+            ),
+            item.source_id,
+        )
+    )
+    candidate_ids = [candidate.source_id for candidate in candidates]
+    retrieval_hit = all(
+        target in candidate_ids for target in case.expected_review_targets
+    )
+    fingerprint = candidate_fingerprint(candidates)
+    if candidate_ids != [candidate.source_id for candidate in proposed_candidates]:
+        raise RuntimeError("Proposed candidate order changed")
+    completed_at = _now()
+    return PipelineResult(
+        run_id=str(uuid.uuid4()),
+        case_id=case.id,
+        case_type=case.type,
+        scenario=case.scenario,
+        provider=provider.name,
+        model=provider.model_name,
+        embedding_model=retriever.embedder.model_name,
+        started_at=started_at,
+        completed_at=completed_at,
+        structured_change=structured_change,
+        candidates=candidates,
+        candidate_fingerprint=fingerprint,
+        baseline_candidate_source_ids=candidate_ids,
+        proposed_candidate_source_ids=candidate_ids,
+        proposed_reviews=review_batch.reviews,
+        final_reviews=final_reviews,
+        role_traces=role_traces,
+        expected_review_targets=case.expected_review_targets,
+        retrieval_hit=retrieval_hit,
+    )
+
+
+def seal_payload(result: PipelineResult) -> str:
+    payload = {
+        "case_id": result.case_id,
+        "candidate_fingerprint": result.candidate_fingerprint,
+        "baseline": result.baseline_candidate_source_ids,
+        "proposed": result.proposed_candidate_source_ids,
+    }
+    value = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
