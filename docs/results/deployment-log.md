@@ -7,9 +7,11 @@ updated: 2026-08-20
 
 ## V2 completion status
 
-The original private service below remains the deployed v1 state. The v2 local implementation now includes a dedicated GCS bucket contract, separate web and evaluation-Job identities, same-image Cloud Run service/Job deployment, structured run events, immutable checkpoints/results, and validated publication. The dedicated bucket exists from the partial provisioning attempt below, but no v2 identity, IAM grant, runtime deployment, or model execution has occurred yet. Final v2 resource names, IAM evidence, execution ID, image digest, GCS generations/hashes, logs, and browser validation will be appended after completion.
+The original v1 service history remains below. V2 provisioning and an initial private service/Job deployment now exist as described in the corrective attempts, but no v2 model execution or publication has occurred. Final execution ID, image digest, GCS generations/hashes, logs, and browser validation will be appended after completion.
 
 The first approved v2 provisioning attempt created `ecr-poc-912838451352-asia-northeast3` with uniform bucket-level access, then stopped before service-account, IAM, or upload steps. The installed gcloud release rejected value-form PAP/versioning flags; the script was corrected to the supported boolean flags and must be re-frozen before the idempotent retry. No v2 model call occurred.
+
+The corrective retry completed bucket hardening, dedicated identities, IAM, frozen/historical uploads, and deployed private revision `ecr-poc-00003-wn5` plus the evaluation Job at image digest `sha256:091dd2d1d37f35d45f47ce733afda87c1432e92750be785d8b626175f4e3bd88`. Pre-run inspection stopped execution because PowerShell serialized the five Job arguments as one string and the verifier used an incorrect Job JSON path. Both defects are being re-frozen before redeployment; no v2 model call occurred.
 
 ## Approved attempt 1
 

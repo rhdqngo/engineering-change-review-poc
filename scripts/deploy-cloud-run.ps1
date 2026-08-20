@@ -99,7 +99,7 @@ $jobEnvironment = @(
 gcloud run jobs deploy ecr-poc-evaluate `
     --image $imageDigest `
     --command uv `
-    --args run,--frozen,--no-dev,ecr-poc,cloud-evaluate `
+    --args "run,--frozen,--no-dev,ecr-poc,cloud-evaluate" `
     --service-account $jobServiceAccount `
     --project $ProjectId `
     --region $Region `

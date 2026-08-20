@@ -31,7 +31,7 @@ if ($LASTEXITCODE -ne 0) {
 if ($service.spec.template.spec.serviceAccountName -ne $expectedWebAccount) {
     throw "Cloud Run service is not using the dedicated web identity."
 }
-if ($job.spec.template.template.spec.serviceAccountName -ne $expectedJobAccount) {
+if ($job.spec.template.spec.template.spec.serviceAccountName -ne $expectedJobAccount) {
     throw "Cloud Run Job is not using the dedicated job identity."
 }
 $serviceRevision = gcloud run revisions describe $service.status.latestReadyRevisionName `
@@ -41,7 +41,7 @@ $serviceRevision = gcloud run revisions describe $service.status.latestReadyRevi
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($serviceRevision.status.imageDigest)) {
     throw "Unable to resolve the service image digest."
 }
-if ($serviceRevision.status.imageDigest -ne $job.spec.template.template.spec.containers[0].image) {
+if ($serviceRevision.status.imageDigest -ne $job.spec.template.spec.template.spec.containers[0].image) {
     throw "Cloud Run service and Job image digests differ."
 }
 

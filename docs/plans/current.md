@@ -27,8 +27,8 @@ updated: 2026-08-20
 | Validation | complete | Data, lint, type, 13 tests, package build, health, fixture and actual raw artifacts, exact-span audit, and rendered browser evidence pass. |
 | GCP deployment and verification | complete | After exact approval, a dedicated `roles/run.builder` identity built private revision `ecr-poc-00002-v9g`; authenticated health/catalog, actual browser flows, fail-closed rejection, unauthenticated 403, and Cloud Logging passed. |
 | V2 local implementation | complete | Versioned role prompt/experiment hashes, GCS-authoritative prompt injection, run provenance, role timeouts, reviewer reconciliation, checkpoint-sealed publication gate, dedicated-identity scripts, published-result API/UI, 27 tests, lint, type, data validation, script parsing, and package build pass. |
-| V2 remote freeze | corrective update in progress | The initial freeze was published at `34b1af7`; a pre-run gcloud flag compatibility correction is validated and must become the new `ecr-poc-v2-freeze` commit before provisioning resumes. No v2 model result exists. |
-| V2 GCP batch and publication | in progress | The dedicated bucket was created with uniform access, then provisioning stopped before accounts/IAM/uploads because the installed gcloud requires boolean PAP/versioning flags. The corrected idempotent retry is next. |
+| V2 remote freeze | second corrective update in progress | Freeze `1eb0fa6` completed provisioning and the first v2 deployment without any model execution. Pre-run inspection found PowerShell Job-argument serialization and Job JSON verification-path defects; their fixes must become the new freeze commit before redeployment. |
+| V2 GCP batch and publication | in progress | Hardened bucket, dedicated identities, IAM, 24 frozen objects, historical pointer, private web revision `ecr-poc-00003-wn5`, and the first Job definition exist. The Job has not executed; corrected same-digest redeployment is next. |
 
 ## Completed major results
 
@@ -68,11 +68,11 @@ updated: 2026-08-20
 ## Blockers and decisions needed
 
 - All remaining freeze, provisioning, deployment, billable execution, publication, verification, evidence-commit, and push phases were explicitly approved on 2026-08-20.
-- No v2 model result exists yet; provisioning must not resume until the corrected commit, `origin/main`, and freeze tag agree.
+- No v2 model result exists yet; redeployment must not resume until the second corrective commit, `origin/main`, and freeze tag agree.
 
 ## Next checkpoint
 
-- Commit and publish the validated gcloud flag correction, move the freeze tag to that commit, then resume idempotent provisioning.
+- Commit and publish the validated Job args/verification correction, move the freeze tag, then redeploy the service and Job from the new identical digest.
 
 ## Related artifacts
 
