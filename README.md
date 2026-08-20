@@ -2,7 +2,7 @@
 
 This repository contains a frozen experiment over a pinned NASA cFS `sample_app` v7.0.1 subset. It compares a baseline fixed Hybrid Retrieval Top-6 with a proposed three-role Google ADK review over the exact same candidates. Only exact source spans supported by an independent verifier can reach final review output. The retained v1 result is hash-consistent but is not claimed as externally timed preregistration; the v2 and v3 Cloud protocols establish that evidence with remote freeze tags before execution.
 
-The published v3 Cloud run is `cloud-v3-20260820T043842Z-6e260831`: 18/18 cases completed, retrieval coverage was 10/12, conditional review success was 9/10, and 4/6 control cases produced at least one false alarm. Its independent UI audit closed the loading-copy issue but found three major interaction/responsive defects, so a separately frozen follow-up is active. See `docs/results/experiment-report-v3.md` and `docs/ui/reviews/2026-08-20-published-v3-docket.md`. V1 and both v2 runs remain immutable historical evidence.
+The final accepted v4 Cloud run is `cloud-v4-20260820T050914Z-92f72d97`: 18/18 cases completed, retrieval coverage was 10/12, conditional review success was 9/10, and 3/6 control cases produced at least one false alarm. See `docs/results/experiment-report-v4.md` for provenance, limitations, and immutable result identity. V1, both v2 runs, and v3 remain immutable historical evidence.
 
 ## Setup and commands
 
@@ -51,7 +51,7 @@ The command validates frozen hashes first and writes per-role raw outputs, candi
 
 ## Verifiable v4 Cloud batch
 
-V4 preserves the immutable v3 experiment while correcting its independent UI audit findings. It reuses the same frozen cases and v2 role prompts, and records an explicit v4 manifest in run provenance and the published pointer.
+V4 preserves the immutable v3 experiment while correcting its independent UI audit findings. It reuses the same frozen cases and v2 role prompts, records an explicit v4 manifest in run provenance and the published pointer, and is frozen at `7b76bfaa74d743d3200421d0dad681d740f1ca1c`.
 
 After local validation, the implementation commit and `ecr-poc-v4-freeze` tag must identify the same remote commit. Each external phase retains its explicit approval switch:
 
@@ -63,4 +63,4 @@ After local validation, the implementation commit and `ecr-poc-v4-freeze` tag mu
 .\scripts\verify-cloud-run.ps1 -ProjectId iceu-687
 ```
 
-The browser never triggers a billable model run. It displays deterministic fixtures or the explicitly published GCS result. See `docs/experiment-protocol-v4.md` for the active closure contract; the v3 report and failed UI audit remain immutable historical evidence.
+The browser never triggers a billable model run. It displays deterministic fixtures or the explicitly published GCS result. See `docs/experiment-protocol-v4.md` and `docs/results/experiment-report-v4.md` for the completed closure; the v3 report and failed UI audit remain historical evidence.
