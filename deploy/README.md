@@ -24,7 +24,7 @@ Each mutating or billable phase requires its own explicit switch:
 .\scripts\deploy-cloud-run.ps1 -ProjectId $PROJECT_ID -Region asia-northeast3 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit $SOURCE_COMMIT -InputPrefix frozen/ecr-poc-v5 -RunPrefix runs/v5 -PublishedObject published/v5/demo.json -ApproveBillableResources
 .\scripts\run-cloud-evaluation.ps1 -ProjectId $PROJECT_ID -Region asia-northeast3 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit $SOURCE_COMMIT -RunPrefix runs/v5 -ApproveBillableRun
 .\scripts\publish-cloud-evaluation.ps1 -ProjectId $PROJECT_ID -Region asia-northeast3 -RunId <validated-run-id> -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit $SOURCE_COMMIT -RunPrefix runs/v5 -PublishedObject published/v5/demo.json -ApprovePublish
-.\scripts\verify-cloud-run.ps1 -ProjectId $PROJECT_ID -Region asia-northeast3 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit $SOURCE_COMMIT -RunPrefix runs/v5 -PublishedObject published/v5/demo.json
+.\scripts\verify-cloud-run.ps1 -ProjectId $PROJECT_ID -Region asia-northeast3 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit $SOURCE_COMMIT -RunPrefix runs/v5 -PublishedObject published/v5/demo.json -AuthenticatedBaseUrl http://127.0.0.1:8093
 ```
 
 Provisioning uploads immutable v5 inputs, including the embedding reproducibility manifest, without touching historical prefixes. Deployment builds once and assigns the exact same image digest to the web service and Job. Execution uses one task, no retries, and a 30-minute timeout, but never changes the published pointer. The separately approved publish command validates the requested manifest, terminal checkpoint, and immutable result before changing `published/v5/demo.json`.
@@ -37,7 +37,7 @@ Provisioning uploads immutable v5 inputs, including the embedding reproducibilit
 - Structured Cloud Logging events trace the published run without prompt, raw output, evidence, credential, or token content.
 - Direct unauthenticated access remains denied.
 
-For browser validation, proxy the private service and open `http://127.0.0.1:8093`:
+Before running the verification command, proxy the private service in another terminal. The same URL is used for browser validation:
 
 ```powershell
 gcloud run services proxy ecr-poc --project $PROJECT_ID --region asia-northeast3 --port 8093

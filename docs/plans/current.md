@@ -1,74 +1,54 @@
 # Current Project State
 
-status: blocked
-phase: v5-local-function-complete-awaiting-explicit-external-approval
+status: complete
+phase: v5-cloud-complete-baseline-published-q1-compared
 updated: 2026-08-20
 
 ## Objective
 
 Build a reproducible NASA cFS engineering-artifact PoC that measures evidence-grounded LLM review after a fixed Hybrid Retrieval Top-K.
 
-## Active scope delivered locally
+## Completed v5 milestone
 
-- Separate v5 case schema over the pinned NASA subset, clean baseline, 32 spans, and 18 cases split Direct 4 / Semantic 4 / Cross-Artifact 4 / Clean 3 / Benign 3. Every mutation binds its changed source, original/changed content, structured values, targets, and target-specific exact evidence.
-- One deterministic 50/50 BM25+dense Top-6 shared by Baseline and Proposed arms.
-- Exactly three Google ADK `LlmAgent` roles with timeouts, exact-span/source gates, cardinality reconciliation, independent verification, and fail-closed publication.
-- Active v5 manifest/index provenance and offline-only v1-v4 compatibility validation; no historical manifest, result, tag, or object was changed.
-- Hardened GCS input/result store, per-case checkpoints, immutable results/failures, and an explicitly validated published pointer.
-- Private Cloud Run web service and single-task sequential Job using one image digest and dedicated least-privilege identities.
-- Structured allowlisted logs and approval-gated provisioning, deployment, billable execution, publication, and verification scripts.
-- Active-v5 API/UI with fixture/published authority labels, TTL/GCS-generation caching, separated liveness/readiness/integrity, latest-request-only fail-closed rendering, complete blocked-record inspection, and responsive keyboard paths.
-- Reproducible v5-q1 quality iteration that changes only query construction and records case-level failure classes plus before/after expected-target ranks.
+- Frozen implementation commit `4d1519f84cd5bac836ea8125ee2d63525ad2578d` is pushed and identified by both `ecr-poc-v5-freeze` and `ecr-poc-v5-q1-freeze`.
+- The pinned NASA subset, clean baseline, 32 spans, and 18 cases remain split Direct 4 / Semantic 4 / Cross-Artifact 4 / Clean 3 / Benign 3 with target-specific exact evidence.
+- Baseline and Proposed share one 50/50 BM25+dense Top-6 candidate object sequence and fingerprint; exactly three ADK roles operate behind deterministic fail-closed gates.
+- Cloud Run revision `ecr-poc-00008-pk2` and the evaluation Job use image digest `sha256:8f4cc7cf8fa04e5832b83634b45c5139868ee7d2f8f0d56c929a49521bbe8afd`, dedicated least-privilege identities, private access, immutable GCS objects, and safe structured logging.
+- Baseline run `cloud-v5-20260820T072055Z-3efe8584` is the UI result at `published/v5/demo.json`; q1 run `cloud-v5-q1-20260820T074302Z-26e9b5e5` is retained only at `published/v5-q1/comparison.json`.
+- Both actual Vertex runs completed 18/18 cases with zero role errors and the same document-vector fingerprint `16de2823647b628bd132b13001a0232fe45c9bd44ca45796bb4e8928d3f8505a`.
+- Actual desktop/narrow browser validation passed published authority, rapid case switching, evidence/verifier/blocked inspection, provenance, and keyboard table scrolling.
+- V1-v4 manifests, results, tags, GCS prefixes, and historical evidence remain unchanged.
 
-## Preserved historical v4 result
+## Quality result
 
-| Item | Value |
-| --- | --- |
-| Freeze | `ecr-poc-v4-freeze` → `7b76bfaa74d743d3200421d0dad681d740f1ca1c` |
-| Run / execution | `cloud-v4-20260820T050914Z-92f72d97` / `ecr-poc-evaluate-sxjnm` |
-| Service revision | `ecr-poc-00007-xvc` |
-| Image digest | `sha256:050ff3602378eb43e0fda6046bc35c788a5e891252c97589c346053d425f0a49` |
-| Result generation | `1787202918502625` |
-| Result SHA-256 | `22b07011b48daec60422a91c69420cdf08a58a85e972f51291de7980d0ee3116` |
-| Completion | 18/18 cases, zero role errors |
-| Retrieval coverage | 10/12 (83.3%) |
-| Conditional review success | 9/10 (90.0%) |
-| Control false alarm | 3/6 (50.0%) |
-| Final verified reviews | 27 |
+The q1 query-only change raised retrieval coverage from 10/12 to 12/12 and expected targets retrieved from 11/13 to 13/13. It also increased Clean/Benign false alarms from 4/6 to 5/6 and worsened mean target rank from 1.818182 to 1.923077. Baseline remains the published demo; no accuracy threshold was used as a completion condition.
 
-Acceptance is based on complete execution and evidence integrity, not target accuracy. The control false-alarm rate remains a material limitation and prevents an autonomous-use claim.
-
-## V5 local verification state
+## Verification state
 
 | Check | Result |
 | --- | --- |
-| Active and historical data | active v5 validation passes; separate v1-v4 data/run validation passes and returns the preserved v1-v4 run IDs |
-| Pipeline | local 18-case baseline and q1 runs complete; all within-run Baseline/Proposed candidate sequences and fingerprints match |
-| Fail closed | exact-span, off-Top-K, duplicate/missing decisions, verifier rejection/missing, and provider-error paths are covered by tests |
-| Metrics and comparison | complete overall/by-type metrics plus case-level classification and target-rank comparison generated |
-| Tests/static/build | 49 tests pass; Ruff, mypy, package sdist/wheel build, and all five PowerShell parsers pass |
-| GCP scripts | explicit manifest/tag/commit/prefix parameters and approval gates implemented; all five scripts parse |
-| UI | independent audit findings repaired; actual local desktop/narrow, 20 rapid transitions, blocked-record selection, catalog 503→retry, published failure/recovery, and narrow keyboard scroll pass. Actual Vertex v5 remains approval-gated |
-| Cloud v5 | not executed; explicit approval, exact commit, and freeze tag required |
-
-V1 remains hash-consistent historical evidence without an externally timed preregistration claim. V2 and v3 runs/tags/GCS versions remain immutable. The failed v3 UI audit is preserved rather than rewritten; v4 closes its three major findings under a distinct pre-run freeze.
+| Data and history | active v5 plus offline v1-v4 validation pass |
+| Pipeline and fail-closed | strict result validation passes for both Vertex runs; exact-span/off-Top-K/cardinality/verifier/provider failure tests pass |
+| Local quality gates | pytest, Ruff, mypy, build, PowerShell parsing, result comparison, and historical diff pass |
+| Cloud | private service, same service/Job digest, GCS pointer seals, minimum IAM, 1/18/1 structured logs, and prohibited-field audit pass |
+| UI | actual baseline published result passes desktop/narrow, 20 rapid transitions, blocked-record selection, provenance, and keyboard scroll |
 
 ## Related artifacts
 
 - Original plan: `docs/plans/LLM 기반 우주 Engineering Change Review.md`
-- Active protocol: `docs/experiment-protocol-v5.md`
+- Protocol: `docs/experiment-protocol-v5.md`
 - Report: `docs/results/experiment-report-v5.md`
-- Local baseline: `results/runs/fixture-v5-baseline.json`
-- Local quality variant: `results/runs/fixture-v5-q1.json`
-- Machine comparison: `results/comparisons/v5-baseline-vs-v5-q1.json`
+- Baseline result: `results/runs/vertex-adk-v5.json`
+- q1 result: `results/runs/vertex-adk-v5-q1.json`
+- Actual comparison: `results/comparisons/v5-vertex-baseline-vs-v5-q1.json`
 - Deployment log: `docs/results/deployment-log.md`
 - Completion audit: `docs/completion-audit.md`
-- UI review: `docs/ui/reviews/2026-08-20-v5-local-docket.md`
-- UI Foundation: `docs/ui/foundation.md` (provisional; validation does not promote governance status)
+- Published UI review: `docs/ui/reviews/2026-08-20-published-v5-docket.md`
+- UI Foundation: `docs/ui/foundation.md` remains provisional; validation does not promote governance status.
 
 ## Next checkpoint
 
-User authorization is required before any remaining action. Accepted scopes are Git-only (commit/push/tag), full external execution (Git plus Cloud Run/GCS/IAM/Vertex/publish), or GCP-excluded closure. Do not move or overwrite any v1-v4 identity.
+No required v5 work remains. Any subsequent quality iteration must change one of prompt, retrieval, or verifier at a time under a new experiment identity and receive fresh billable approval before Vertex execution.
 
 ## Update rules
 

@@ -61,7 +61,7 @@ After local validation and explicit authorization, the implementation commit and
 .\scripts\deploy-cloud-run.ps1 -ProjectId iceu-687 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit <commit> -InputPrefix frozen/ecr-poc-v5 -RunPrefix runs/v5 -PublishedObject published/v5/demo.json -ApproveBillableResources
 .\scripts\run-cloud-evaluation.ps1 -ProjectId iceu-687 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit <commit> -RunPrefix runs/v5 -ApproveBillableRun
 .\scripts\publish-cloud-evaluation.ps1 -ProjectId iceu-687 -RunId <validated-run-id> -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit <commit> -RunPrefix runs/v5 -PublishedObject published/v5/demo.json -ApprovePublish
-.\scripts\verify-cloud-run.ps1 -ProjectId iceu-687 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit <commit> -RunPrefix runs/v5 -PublishedObject published/v5/demo.json
+.\scripts\verify-cloud-run.ps1 -ProjectId iceu-687 -ExperimentManifest ecr-poc-v5.json -FreezeTag ecr-poc-v5-freeze -SourceCommit <commit> -RunPrefix runs/v5 -PublishedObject published/v5/demo.json -AuthenticatedBaseUrl http://127.0.0.1:8093
 ```
 
-The browser never triggers a billable model run. It displays deterministic fixtures or the explicitly published GCS result. See `docs/experiment-protocol-v5.md` and `docs/results/experiment-report-v5.md`; all earlier reports remain historical evidence.
+Run the private Cloud Run proxy on port 8093 in another terminal before the verification command. The browser never triggers a billable model run. It displays deterministic fixtures or the explicitly published GCS result. See `docs/experiment-protocol-v5.md` and `docs/results/experiment-report-v5.md`; all earlier reports remain historical evidence.

@@ -5,6 +5,23 @@ region: `asia-northeast3`
 service: `ecr-poc`  
 updated: 2026-08-20
 
+## V5 completion status
+
+V5 is complete. Both lightweight freeze tags identify implementation commit `4d1519f84cd5bac836ea8125ee2d63525ad2578d`; v1-v4 tags and GCS objects remain unchanged. Revision `ecr-poc-00008-pk2` and Job `ecr-poc-evaluate` use image digest `sha256:8f4cc7cf8fa04e5832b83634b45c5139868ee7d2f8f0d56c929a49521bbe8afd`.
+
+| Item | Baseline | Q1 comparison |
+| --- | --- | --- |
+| Freeze tag | `ecr-poc-v5-freeze` | `ecr-poc-v5-q1-freeze` |
+| Execution | `ecr-poc-evaluate-2s5kv` | `ecr-poc-evaluate-l9mjm` |
+| Run | `cloud-v5-20260820T072055Z-3efe8584` | `cloud-v5-q1-20260820T074302Z-26e9b5e5` |
+| Generation | `1787210878757222` | `1787212289859637` |
+| SHA-256 | `d04c26087b1436a956dd18ac353417c6ebcd8db828522c0fb9265516ede143ef` | `2e3b185f548eeff405e816e0c607edc11db46c8fac9c2f42dd369cd0a7a6cae2` |
+| Pointer | `published/v5/demo.json` | `published/v5-q1/comparison.json` |
+
+Provisioning uploaded 30 immutable objects under `frozen/ecr-poc-v5`. Both single-task runs completed 18/18 cases with zero role errors and the same embedding fingerprint. The service and Job retain their dedicated runtime identities; web has bucket objectViewer, Job has bucket objectUser plus project aiplatform.user, and neither has a broad project role. The verifier user has the explicitly approved service-level run.invoker binding; no public member exists and final direct unauthenticated verification returned 403.
+
+Filtered structured logs contain one start, 18 case completions, and one evaluation completion for each run, with no prompt, raw output/evidence, credential, or token fields. Authenticated API and browser verification confirmed baseline publication, exact source commit and fingerprint, desktop/narrow layout, 20 rapid transitions, XART-04's five selectable withheld records with no evidence exposure, and keyboard table scroll. Q1 is not exposed by the UI.
+
 ## V4 completion status
 
 V4 is complete and published. The implementation freeze is `ecr-poc-v4-freeze` at `7b76bfaa74d743d3200421d0dad681d740f1ca1c`; v2/v3 tags and all earlier GCS objects remain unchanged. Revision `ecr-poc-00007-xvc` and Job `ecr-poc-evaluate` use the same immutable image digest `sha256:050ff3602378eb43e0fda6046bc35c788a5e891252c97589c346053d425f0a49`.

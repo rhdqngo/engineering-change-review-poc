@@ -1,0 +1,525 @@
+{
+  "baseline": {
+    "run_id": "cloud-v5-20260820T072055Z-3efe8584",
+    "experiment_id": "ecr-poc-preregistered-v5",
+    "query_version": "structured-change-v1",
+    "target_rank_summary": {
+      "targets": 13,
+      "retrieved": 11,
+      "mean_rank": 1.818182,
+      "mean_reciprocal_rank": 0.760606
+    }
+  },
+  "variant": {
+    "run_id": "cloud-v5-q1-20260820T074302Z-26e9b5e5",
+    "experiment_id": "ecr-poc-preregistered-v5-q1",
+    "query_version": "structured-change-v2-artifact-delta",
+    "target_rank_summary": {
+      "targets": 13,
+      "retrieved": 13,
+      "mean_rank": 1.923077,
+      "mean_reciprocal_rank": 0.737179
+    }
+  },
+  "invariant_checks": {
+    "provider": true,
+    "model": true,
+    "embedding_model": true,
+    "embedding_index_fingerprint": true,
+    "top_k": true,
+    "fusion": true,
+    "prompt_hashes": true,
+    "query_version_changed": true
+  },
+  "candidate_sequences_changed": 16,
+  "delta": {
+    "mean_rank": 0.104895,
+    "mean_reciprocal_rank": -0.023427
+  },
+  "cases": [
+    {
+      "case_id": "DIR-01",
+      "type": "direct",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [
+          "IFACE_COMMAND_CODES_EDS"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [
+          "IFACE_COMMAND_CODES_EDS"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "CONFIG_FUNCTION_CODES": {
+          "baseline": 1,
+          "variant": 1
+        }
+      }
+    },
+    {
+      "case_id": "DIR-02",
+      "type": "direct",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [
+          "DESIGN_DISPLAY",
+          "IFACE_DISPLAY_EDS",
+          "TEST_DISPLAY"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [
+          "DESIGN_DISPLAY",
+          "IFACE_DISPLAY_EDS",
+          "TEST_DISPLAY"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "CONFIG_DISPLAY_SCHEMA": {
+          "baseline": 1,
+          "variant": 1
+        }
+      }
+    },
+    {
+      "case_id": "DIR-03",
+      "type": "direct",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "CONFIG_RUNTIME_LIMITS": {
+          "baseline": 5,
+          "variant": 1
+        }
+      }
+    },
+    {
+      "case_id": "DIR-04",
+      "type": "direct",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "CONFIG_STRING_LENGTH": {
+          "baseline": 1,
+          "variant": 1
+        }
+      }
+    },
+    {
+      "case_id": "SEM-01",
+      "type": "semantic",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "DESIGN_RESET": {
+          "baseline": 1,
+          "variant": 1
+        }
+      }
+    },
+    {
+      "case_id": "SEM-02",
+      "type": "semantic",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [
+          "CONFIG_HK_SCHEMA",
+          "DESIGN_RESET",
+          "IFACE_HK_EDS"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [
+          "CONFIG_HK_SCHEMA",
+          "IFACE_HK_EDS"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "DESIGN_SEND_HK": {
+          "baseline": 1,
+          "variant": 1
+        }
+      }
+    },
+    {
+      "case_id": "SEM-03",
+      "type": "semantic",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [
+          "CONFIG_DISPLAY_SCHEMA",
+          "IFACE_DISPLAY_EDS",
+          "TEST_DISPLAY"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [
+          "CONFIG_DISPLAY_SCHEMA",
+          "IFACE_DISPLAY_EDS",
+          "TEST_DISPLAY"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "DESIGN_DISPLAY": {
+          "baseline": 3,
+          "variant": 3
+        }
+      }
+    },
+    {
+      "case_id": "SEM-04",
+      "type": "semantic",
+      "baseline_failures": {
+        "retrieval_miss": [
+          "DESIGN_NOOP"
+        ],
+        "expected_target_miss": [
+          "DESIGN_NOOP"
+        ],
+        "mutation_unnecessary_warnings": [
+          "DESIGN_SEND_HK"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [
+          "DESIGN_NOOP"
+        ],
+        "mutation_unnecessary_warnings": [
+          "DESIGN_SEND_HK"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "DESIGN_NOOP": {
+          "baseline": null,
+          "variant": 1
+        }
+      }
+    },
+    {
+      "case_id": "XART-01",
+      "type": "cross_artifact",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [
+          "TEST_DISPLAY"
+        ],
+        "mutation_unnecessary_warnings": [
+          "CONFIG_STRING_LENGTH"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [
+          "TEST_DISPLAY"
+        ],
+        "mutation_unnecessary_warnings": [
+          "CONFIG_DISPLAY_SCHEMA",
+          "CONFIG_STRING_LENGTH",
+          "IFACE_DISPLAY_EDS"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "TEST_DISPLAY": {
+          "baseline": 3,
+          "variant": 4
+        }
+      }
+    },
+    {
+      "case_id": "XART-02",
+      "type": "cross_artifact",
+      "baseline_failures": {
+        "retrieval_miss": [
+          "DESIGN_INIT_TABLE"
+        ],
+        "expected_target_miss": [
+          "DESIGN_INIT_TABLE"
+        ],
+        "mutation_unnecessary_warnings": [
+          "CONFIG_RUNTIME_LIMITS"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [
+          "CONFIG_RUNTIME_LIMITS",
+          "DESIGN_PROCESS"
+        ],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "DESIGN_INIT_TABLE": {
+          "baseline": null,
+          "variant": 4
+        }
+      }
+    },
+    {
+      "case_id": "XART-03",
+      "type": "cross_artifact",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "DESIGN_TABLE_VALIDATION": {
+          "baseline": 2,
+          "variant": 4
+        },
+        "TEST_TABLE_VALIDATION": {
+          "baseline": 1,
+          "variant": 2
+        }
+      }
+    },
+    {
+      "case_id": "XART-04",
+      "type": "cross_artifact",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {
+        "DESIGN_RUN_LOOP": {
+          "baseline": 1,
+          "variant": 1
+        }
+      }
+    },
+    {
+      "case_id": "CLN-01",
+      "type": "clean",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [
+          "DESIGN_NOOP"
+        ],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {}
+    },
+    {
+      "case_id": "CLN-02",
+      "type": "clean",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [
+          "CONFIG_FUNCTION_CODES",
+          "IFACE_COMMAND_CODES_EDS"
+        ],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [
+          "CONFIG_FUNCTION_CODES",
+          "IFACE_COMMAND_CODES_EDS"
+        ],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {}
+    },
+    {
+      "case_id": "CLN-03",
+      "type": "clean",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {}
+    },
+    {
+      "case_id": "BEN-01",
+      "type": "benign",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [
+          "CONFIG_DISPLAY_SCHEMA",
+          "IFACE_DISPLAY_EDS"
+        ],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [
+          "CONFIG_DISPLAY_SCHEMA",
+          "IFACE_DISPLAY_EDS"
+        ],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {}
+    },
+    {
+      "case_id": "BEN-02",
+      "type": "benign",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [
+          "CONFIG_STRING_LENGTH"
+        ],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [
+          "CONFIG_STRING_LENGTH"
+        ],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {}
+    },
+    {
+      "case_id": "BEN-03",
+      "type": "benign",
+      "baseline_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [
+          "CONFIG_RUNTIME_LIMITS"
+        ],
+        "verifier_pass_error": []
+      },
+      "variant_failures": {
+        "retrieval_miss": [],
+        "expected_target_miss": [],
+        "mutation_unnecessary_warnings": [],
+        "control_false_alarm": [
+          "CONFIG_RUNTIME_LIMITS"
+        ],
+        "verifier_pass_error": []
+      },
+      "expected_target_ranks": {}
+    }
+  ]
+}

@@ -1,41 +1,55 @@
-# Engineering Change Review v5 Local Completion Report
+# Engineering Change Review v5 Cloud Completion Report
 
-status: local-function-complete; cloud evidence pending explicit approval
+status: complete; baseline published; q1 retained as a non-UI comparison
 updated: 2026-08-20
 
-## Result identity and scope
+## Frozen identity
 
-The active v5 implementation has a complete 18-case deterministic fixture run. It verifies data, retrieval sharing, three-role flow, fail-closed defenses, metrics, provenance, storage validation, API, and UI behavior without invoking Vertex or changing GCP. It is not an LLM accuracy result.
+Both experiments use source commit `4d1519f84cd5bac836ea8125ee2d63525ad2578d`, revision `ecr-poc-00008-pk2`, and image digest `sha256:8f4cc7cf8fa04e5832b83634b45c5139868ee7d2f8f0d56c929a49521bbe8afd`. Lightweight tags `ecr-poc-v5-freeze` and `ecr-poc-v5-q1-freeze` identify that commit and were not moved after execution.
 
 | Item | v5 baseline | v5-q1 |
 | --- | --- | --- |
-| Experiment | `ecr-poc-preregistered-v5` | `ecr-poc-preregistered-v5-q1` |
 | Query | `structured-change-v1` | `structured-change-v2-artifact-delta` |
-| Run | `fixture-v5-baseline` | `fixture-v5-q1` |
-| Result SHA-256 | `904358fe8b25694b06e1a9bcbc18b1e88ce10dd982039e2c58700c3014a4167a` | `44f7b4c0ea5c8073dd57ef51f2ab02e09609421579903df2a0fb4db3882aec81` |
-| Document-vector fingerprint | `9235b163efa97ca5a58b4dc43ee6ebb2547ddfc811153a508868026799f3edb6` | same |
-| Cases | 18/18 | 18/18 |
-| Retrieval coverage | 12/12 | 12/12 |
-| Conditional review success | 12/12 | 12/12 |
-| Clean/Benign false alarms | 0/6 | 0/6 |
-| Verified / blocked | 13 / 1 | 13 / 1 |
+| Run | `cloud-v5-20260820T072055Z-3efe8584` | `cloud-v5-q1-20260820T074302Z-26e9b5e5` |
+| Execution | `ecr-poc-evaluate-2s5kv` | `ecr-poc-evaluate-l9mjm` |
+| GCS generation | `1787210878757222` | `1787212289859637` |
+| Result SHA-256 | `d04c26087b1436a956dd18ac353417c6ebcd8db828522c0fb9265516ede143ef` | `2e3b185f548eeff405e816e0c607edc11db46c8fac9c2f42dd369cd0a7a6cae2` |
+| Document-vector fingerprint | `16de2823647b628bd132b13001a0232fe45c9bd44ca45796bb4e8928d3f8505a` | same |
+| Pointer | `published/v5/demo.json` | `published/v5-q1/comparison.json` |
+| UI exposed | yes | no |
 
-The identical outcome metrics are expected because the fixture provider uses the frozen expected targets. They prove the paths and gates, not Gemini behavior.
+Both immutable results contain 18/18 terminal cases, zero role errors, identical Baseline/Proposed candidate sequences within every case, and strict checkpoint/generation/SHA, exact-span, verifier, provenance, and recomputed-metric validation.
 
-## One-variable quality result
+## Actual Vertex comparison
 
-The reproducible comparison held provider, generation model, embedding model and document-vector fingerprint, Top-K, fusion, prompt hashes, verifier, cases, and labels fixed. Only query construction changed.
+Only query construction changed. Provider, generation model, embedding model and document-vector fingerprint, Top-K, fusion, prompt hashes, verifier behavior, cases, labels, source commit, and container image remained fixed. All eight machine invariant checks passed.
 
-| Retrieval diagnostic | baseline | v5-q1 | delta |
-| --- | ---: | ---: | ---: |
-| Expected targets retrieved | 13/13 | 13/13 | 0 |
-| Mean expected-target rank | 1.846154 | 1.692308 | -0.153846 (better) |
-| Mean reciprocal rank | 0.756410 | 0.762821 | +0.006411 (better) |
+| Metric | baseline | v5-q1 | Observation |
+| --- | ---: | ---: | --- |
+| Retrieval coverage | 10/12 | 12/12 | q1 recovered SEM-04 and XART-02 |
+| Conditional LLM review success | 9/10 | 10/12 | one more mutation retained, lower conditional rate |
+| Clean/Benign false alarms | 4/6 | 5/6 | q1 added a CLN-01 false alarm |
+| Verified / blocked | 29 / 5 | 33 / 9 | q1 selected and blocked more outputs |
+| Expected targets retrieved | 11/13 | 13/13 | +2 |
+| Mean expected-target rank | 1.818182 | 1.923077 | worse by 0.104895 |
+| Mean reciprocal rank | 0.760606 | 0.737179 | worse by 0.023427 |
 
-All case-level categories were empty in both fixture runs: retrieval miss, expected-target miss, mutation unnecessary warning, control false alarm, and verifier pass error. Candidate sequences changed in all 18 cases, as expected from the query change. Improvements were concentrated in DIR-03 (6→1), SEM-02 (2→1), and SEM-03 (3→2). XART-01 (1→3) and both XART-03 targets (3→4 and 1→3) regressed. The next iteration should address the cross-artifact trade-off by changing one variable only; no label or prior result should be edited.
+The query delta increased retrieval recall but did not produce an overall quality win. DIR-03 improved from rank 5 to 1 and previously missed SEM-04/XART-02 targets entered Top-K. XART-01 and both XART-03 targets regressed, and control false alarms increased. Baseline therefore remains the published demo result. These accuracy values are comparison evidence, not completion thresholds, and the high control false-alarm rate prevents an autonomous-use claim.
 
-Machine-readable details are in `results/comparisons/v5-baseline-vs-v5-q1.json` (SHA-256 `5a0130c700cbd574d8b075865bb9d280f360ecb0ddee69c77c2561a04bbf6049`).
+Machine-readable comparison: `results/comparisons/v5-vertex-baseline-vs-v5-q1.json`, SHA-256 `e75ddee0a50eb6480596eedf75c6a21fd2f4071357626d186ee3c92cf10494a1`.
 
-## Remaining external evidence
+## Cloud and UI verification
 
-V1-v4 tags, manifests, results, and GCS objects remain historical and unchanged. V5 Cloud Run/Job, Vertex embeddings/generation, v5 GCS prefix/published pointer, IAM, Logging, and deployed UI have not been executed in this worktree. They require an exact commit and freeze tag, then explicit billable/deploy/publish approval.
+- `frozen/ecr-poc-v5` contains 30 generation-guarded inputs; v1-v4 prefixes and tags were unchanged.
+- The private service and one-task/no-retry Job share the same image digest and dedicated identities. Web has bucket `objectViewer`; Job has bucket `objectUser` plus project `aiplatform.user`; neither has a broad project role.
+- The approved verifier user has service-level `roles/run.invoker`; no `allUsers` or `allAuthenticatedUsers` binding exists. Final direct unauthenticated verification returned 403.
+- Each run has one `job_started`, 18 `case_completed`, and one `evaluation_completed` event. No structured record contains prompt, raw output/evidence, credential, or token fields.
+- Authenticated readiness/integrity returned the baseline run, source commit, GCS store, 18 cases, and valid freeze. Actual browser checks passed published/fixture authority, 20 rapid transitions, XART-04 withheld-record inspection, desktop/narrow layout, and keyboard table scroll from 0 to 320 px with no body overflow.
+
+## Next single-variable iterations
+
+1. Keep baseline retrieval fixed and change only the review prompt to reduce Clean/Benign over-selection.
+2. In a later version, keep the winning prompt fixed and change only verifier support criteria for control-case abstention.
+3. Revisit query construction only after those results; preserve both v5 runs and labels unchanged.
+
+Any further Vertex run requires a new experiment identity and explicit billable approval.

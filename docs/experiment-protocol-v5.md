@@ -1,10 +1,10 @@
 # Verifiable v5 Function-Complete and Quality-Iteration Protocol
 
-status: local-validation-complete; external-freeze-and-cloud-run-pending-approval
+status: complete; baseline published; q1 comparison retained
 baseline experiment: `ecr-poc-preregistered-v5`
-baseline freeze tag: `ecr-poc-v5-freeze` (not created yet)
+baseline freeze tag: `ecr-poc-v5-freeze` → `4d1519f84cd5bac836ea8125ee2d63525ad2578d`
 quality variant: `ecr-poc-preregistered-v5-q1`
-quality freeze tag: `ecr-poc-v5-q1-freeze` (not created yet)
+quality freeze tag: `ecr-poc-v5-q1-freeze` → `4d1519f84cd5bac836ea8125ee2d63525ad2578d`
 
 ## Purpose
 
@@ -56,3 +56,10 @@ No external step runs without explicit approval.
 8. Verify private access, dedicated identities, least-privilege IAM, structured logs, integrity endpoints, and actual desktop/narrow UI.
 
 The baseline v5 Cloud execution should precede any billable q1 execution. Observed quality never changes the frozen labels or historical results.
+
+## Completed external evidence
+
+- Baseline execution `ecr-poc-evaluate-2s5kv` produced run `cloud-v5-20260820T072055Z-3efe8584`, generation `1787210878757222`, and SHA-256 `d04c26087b1436a956dd18ac353417c6ebcd8db828522c0fb9265516ede143ef`; it is the UI result at `published/v5/demo.json`.
+- Q1 execution `ecr-poc-evaluate-l9mjm` produced run `cloud-v5-q1-20260820T074302Z-26e9b5e5`, generation `1787212289859637`, and SHA-256 `2e3b185f548eeff405e816e0c607edc11db46c8fac9c2f42dd369cd0a7a6cae2`; it is retained at the non-UI pointer `published/v5-q1/comparison.json`.
+- Both runs use revision `ecr-poc-00008-pk2`, the same immutable image and document-vector fingerprint, complete 18/18 cases, and have zero role errors.
+- All single-variable invariants passed. Q1 improved retrieval coverage but regressed false alarms and mean expected-target rank, so baseline remains the published demo.

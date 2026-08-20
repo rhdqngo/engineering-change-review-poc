@@ -1,0 +1,18 @@
+{
+  "experiment_id": "ecr-poc-preregistered-v5-q1",
+  "experiment_manifest": "ecr-poc-v5-q1.json",
+  "run_id": "cloud-v5-q1-20260820T074302Z-26e9b5e5",
+  "source_commit": "4d1519f84cd5bac836ea8125ee2d63525ad2578d",
+  "freeze_tag": "ecr-poc-v5-q1-freeze",
+  "cloud_execution": "ecr-poc-evaluate-l9mjm",
+  "cloud_run_revision": "ecr-poc-00008-pk2",
+  "container_image_digest": "asia-northeast3-docker.pkg.dev/iceu-687/cloud-run-source-deploy/ecr-poc@sha256:8f4cc7cf8fa04e5832b83634b45c5139868ee7d2f8f0d56c929a49521bbe8afd",
+  "gcs_object": "gs://ecr-poc-912838451352-asia-northeast3/runs/v5-q1/cloud-v5-q1-20260820T074302Z-26e9b5e5/evaluation.json",
+  "gcs_generation": 1787212289859637,
+  "sha256": "2e3b185f548eeff405e816e0c607edc11db46c8fac9c2f42dd369cd0a7a6cae2",
+  "published_object": "published/v5-q1/comparison.json",
+  "published_at": "2026-08-20T07:52:20.960357+00:00",
+  "embedding_index_fingerprint": "16de2823647b628bd132b13001a0232fe45c9bd44ca45796bb4e8928d3f8505a",
+  "case_count": 18,
+  "ui_exposed": false
+}

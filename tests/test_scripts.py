@@ -46,3 +46,9 @@ def test_cloud_verification_binds_deployed_state_to_requested_identity() -> None
     assert "$jobEnvironment.ECR_EXPERIMENT_MANIFEST -ne $ExperimentManifest" in verify
     assert "$jobEnvironment.ECR_GCS_RUN_PREFIX -ne $RunPrefix" in verify
     assert "$readiness.source_commit -ne $SourceCommit" in verify
+    assert '[string]$AuthenticatedBaseUrl = ""' in verify
+    assert '$unauthenticatedStatus -notin @(403, 404)' in verify
+    assert '$_ -in @("allUsers", "allAuthenticatedUsers")' in verify
+    assert '$activeInvokerRoles[0] -ne "roles/run.invoker"' in verify
+    assert "AND jsonPayload.event:*" in verify
+    assert "--limit 500" in verify

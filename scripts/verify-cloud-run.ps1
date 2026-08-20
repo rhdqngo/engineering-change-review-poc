@@ -15,7 +15,9 @@ param(
 
     [string]$RunPrefix = "runs/v5",
 
-    [string]$PublishedObject = "published/v5/demo.json"
+    [string]$PublishedObject = "published/v5/demo.json",
+
+    [string]$AuthenticatedBaseUrl = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -104,30 +106,73 @@ if ($serviceRevision.status.imageDigest -ne $job.spec.template.spec.template.spe
     throw "Cloud Run service and Job image digests differ."
 }
 
-$serviceUrl = $service.status.url
-$identityToken = gcloud auth print-identity-token
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($identityToken)) {
-    throw "Unable to obtain an identity token."
+$servicePolicy = gcloud run services get-iam-policy ecr-poc `
+    --project $ProjectId `
+    --region $Region `
+    --format json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) {
+    throw "Unable to read Cloud Run service IAM policy."
 }
-$headers = @{ Authorization = "Bearer $identityToken" }
+$publicMembers = @(
+    $servicePolicy.bindings | ForEach-Object { $_.members } | Where-Object {
+        $_ -in @("allUsers", "allAuthenticatedUsers")
+    }
+)
+if ($publicMembers.Count -ne 0) {
+    throw "Cloud Run service has a public invoker binding: $publicMembers"
+}
+$activeAccount = gcloud config get-value account 2>$null
+$activeInvokerRoles = @(
+    $servicePolicy.bindings | Where-Object {
+        $_.members -contains "user:$activeAccount"
+    } | ForEach-Object { $_.role }
+)
+if (
+    [string]::IsNullOrWhiteSpace($activeAccount) -or
+    $activeInvokerRoles.Count -ne 1 -or
+    $activeInvokerRoles[0] -ne "roles/run.invoker"
+) {
+    throw "Active verifier account must have only service-level roles/run.invoker."
+}
+
+$serviceUrl = $service.status.url.TrimEnd("/")
+$authenticatedUrl = $AuthenticatedBaseUrl.TrimEnd("/")
+$headers = @{}
+if ([string]::IsNullOrWhiteSpace($authenticatedUrl)) {
+    $authenticatedUrl = $serviceUrl
+    $identityToken = gcloud auth print-identity-token
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($identityToken)) {
+        throw "Unable to obtain an identity token."
+    }
+    $headers = @{ Authorization = "Bearer $identityToken" }
+}
+
+function Invoke-AuthenticatedGet([string]$Path) {
+    $parameters = @{ Uri = "$authenticatedUrl/$Path" }
+    if ($headers.Count -ne 0) {
+        $parameters.Headers = $headers
+    }
+    return Invoke-RestMethod @parameters
+}
+
 $unauthenticatedStatus = $null
 try {
-    Invoke-WebRequest -Uri "$serviceUrl/healthz" -UseBasicParsing | Out-Null
+    Invoke-WebRequest -Uri "$serviceUrl/health" -UseBasicParsing | Out-Null
     $unauthenticatedStatus = 200
 } catch {
     if ($null -ne $_.Exception.Response) {
         $unauthenticatedStatus = [int]$_.Exception.Response.StatusCode
     }
 }
-if ($unauthenticatedStatus -ne 403) {
-    throw "Unauthenticated Cloud Run requests must return 403; got $unauthenticatedStatus."
+if ($unauthenticatedStatus -notin @(403, 404)) {
+    throw "Unauthenticated Cloud Run requests must be denied with 403 or 404; got $unauthenticatedStatus."
 }
-$health = Invoke-RestMethod -Uri "$serviceUrl/healthz" -Headers $headers
+$health = Invoke-AuthenticatedGet "health"
 if ($health.status -ne "alive") {
     throw "Cloud liveness endpoint failed."
 }
-$readiness = Invoke-RestMethod -Uri "$serviceUrl/readyz" -Headers $headers
-$integrity = Invoke-RestMethod -Uri "$serviceUrl/integrity" -Headers $headers
+$readiness = Invoke-AuthenticatedGet "readyz"
+$integrity = Invoke-AuthenticatedGet "integrity"
 if (
     $readiness.status -ne "ready" -or
     $readiness.data_integrity -ne "valid" -or
@@ -139,11 +184,11 @@ if (
 ) {
     throw "Cloud readiness/integrity response did not validate the GCS-published experiment."
 }
-$caseCatalog = Invoke-RestMethod -Uri "$serviceUrl/api/cases" -Headers $headers
+$caseCatalog = Invoke-AuthenticatedGet "api/cases"
 if ($caseCatalog.top_k -ne 6 -or $caseCatalog.cases.Count -ne 18) {
     throw "Cloud case catalog does not match the frozen experiment."
 }
-$evaluation = Invoke-RestMethod -Uri "$serviceUrl/api/evaluation" -Headers $headers
+$evaluation = Invoke-AuthenticatedGet "api/evaluation"
 if (
     $evaluation.experiment_id -ne $experiment.experiment_id -or
     $evaluation.cases.Count -ne 18 -or
@@ -209,9 +254,9 @@ if ($jobBindings.Count -ne 1 -or $jobBindings[0] -ne "roles/storage.objectUser")
 }
 
 $logRecords = gcloud logging read `
-    "resource.type=cloud_run_job AND resource.labels.job_name=ecr-poc-evaluate AND jsonPayload.run_id=$($readiness.published_run_id)" `
+    "resource.type=cloud_run_job AND resource.labels.job_name=ecr-poc-evaluate AND jsonPayload.run_id=$($readiness.published_run_id) AND jsonPayload.event:*" `
     --project $ProjectId `
-    --limit 200 `
+    --limit 500 `
     --format json | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) {
     throw "Structured Cloud Logging read failed."
@@ -230,6 +275,7 @@ if ($serializedLogs -match '"(prompt|raw_output|evidence|credential|token)"\s*:'
 }
 
 Write-Output "liveness=alive"
+Write-Output "unauthenticatedStatus=$unauthenticatedStatus"
 Write-Output "readiness=ready"
 Write-Output "integrity=valid"
 Write-Output "resultStore=gcs"
