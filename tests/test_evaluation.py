@@ -71,6 +71,7 @@ def test_v2_fixture_run_records_reproducible_provenance() -> None:
     assert run.run_id == "test-v2-run"
     assert run.provenance is not None
     assert run.provenance.freeze_tag == "ecr-poc-v2-freeze"
+    assert run.provenance.experiment_manifest == "ecr-poc-v2.json"
     assert run.provenance.source_commit == "0123456789abcdef"
     assert run.provenance.prompt_version == "ecr-poc-prompts-v2"
     assert run.provenance.prompt_hashes == {
@@ -79,6 +80,26 @@ def test_v2_fixture_run_records_reproducible_provenance() -> None:
         "evidence_verifier": "9e6057d53ad3ebe7bf68754cf06f50918c862522cb91a952e935eb3afe3a21a6",
     }
     assert all(case.run_id == "test-v2-run" for case in run.cases)
+
+
+def test_v3_fixture_run_records_manifest_and_unchanged_prompts() -> None:
+    run = asyncio.run(
+        evaluate(
+            provider_name="fixture",
+            embedding_provider="local",
+            output_path=Path(".runtime/test-evaluation-v3.json"),
+            experiment_manifest="ecr-poc-v3.json",
+            run_id="test-v3-run",
+            source_commit="fedcba9876543210",
+            update_latest=False,
+        )
+    )
+    assert run.experiment_id == "ecr-poc-preregistered-v3"
+    assert run.provenance is not None
+    assert run.provenance.freeze_tag == "ecr-poc-v3-freeze"
+    assert run.provenance.experiment_manifest == "ecr-poc-v3.json"
+    assert run.provenance.prompt_version == "ecr-poc-prompts-v2"
+    assert all(case.run_id == "test-v3-run" for case in run.cases)
 
 
 def test_checkpoint_failure_records_failure_and_never_writes_final() -> None:

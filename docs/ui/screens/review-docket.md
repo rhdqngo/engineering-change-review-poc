@@ -30,3 +30,9 @@ No change editing, source mutation, reviewer approval, prompt display, or live V
 - Rename the saved-result control to `Published Cloud evaluation`.
 - Show published run ID and source-commit provenance in the existing environment/footer roles.
 - Do not add a Job execution control or persistent explanatory paragraph.
+
+## V3 loading-state repair
+
+- Initial Evidence desk state says `Loading review disposition…`; it does not instruct the user to run a case.
+- `Reload result` remains disabled until the initial result resolves.
+- Loaded, error, fixture, published, evidence, and responsive behavior remain unchanged.

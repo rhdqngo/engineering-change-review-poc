@@ -95,13 +95,18 @@ async def evaluate(
     experiment_id = base_experiment_id
     provenance: RunProvenance | None = None
     manifest: dict[str, Any] | None = None
-    prompt_bundle = load_prompt_bundle(root)
+    prompt_file = "data/prompts/ecr-poc-v2.json"
     if experiment_manifest:
         validate_experiment_manifest(root, experiment_manifest)
         manifest = load_experiment_manifest(root, experiment_manifest)
         experiment_id = str(manifest["experiment_id"])
         if not source_commit:
-            raise RuntimeError("v2 evaluation requires a source commit")
+            raise RuntimeError("Versioned evaluation requires a source commit")
+        prompt_file = str(manifest["prompt_file"])
+    prompt_bundle = load_prompt_bundle(root, prompt_file)
+    if manifest is not None:
+        assert experiment_manifest is not None
+        assert source_commit is not None
         prompt_hashes = {
             str(role): str(digest)
             for role, digest in manifest["prompt_hashes"].items()
@@ -109,6 +114,7 @@ async def evaluate(
         provenance = RunProvenance(
             source_commit=source_commit,
             freeze_tag=str(manifest["freeze_tag"]),
+            experiment_manifest=experiment_manifest,
             prompt_version=prompt_bundle.version,
             prompt_hashes=prompt_hashes,
             input_manifest_sha256=sha256_file(

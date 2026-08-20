@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .data import (
+    experiment_manifest_name,
     load_experiment_manifest,
     repository_root,
     sha256_file,
@@ -255,54 +256,80 @@ def materialize_gcs_prefix(
     return {"objects": count, "bytes": total_bytes}
 
 
-def _validate_cloud_v2_provenance(run: EvaluationRun) -> None:
+def _validate_cloud_provenance(
+    run: EvaluationRun,
+    expected_experiment_manifest: str | None = None,
+) -> str:
     root = repository_root()
-    validate_experiment_manifest(root)
-    manifest = load_experiment_manifest(root)
     provenance = run.provenance
     if provenance is None:
-        raise RuntimeError("Published v2 run has no provenance")
+        raise RuntimeError("Published versioned run has no provenance")
+    derived_manifest = experiment_manifest_name(run.experiment_id)
+    manifest_name = provenance.experiment_manifest or derived_manifest
+    if manifest_name != derived_manifest:
+        raise RuntimeError("Published experiment manifest does not match its run ID")
+    if (
+        expected_experiment_manifest is not None
+        and manifest_name != expected_experiment_manifest
+    ):
+        raise RuntimeError("Published experiment manifest does not match the request")
+    validate_experiment_manifest(root, manifest_name)
+    manifest = load_experiment_manifest(root, manifest_name)
+    if run.experiment_id != manifest["experiment_id"]:
+        raise RuntimeError("Published experiment ID does not match its manifest")
     expected_manifest_hash = sha256_file(
-        root / "data" / "experiments" / "ecr-poc-v2.json"
+        root / "data" / "experiments" / manifest_name
     )
     if provenance.freeze_tag != manifest["freeze_tag"]:
-        raise RuntimeError("Published v2 freeze tag mismatch")
+        raise RuntimeError("Published freeze tag mismatch")
     if provenance.prompt_hashes != manifest["prompt_hashes"]:
-        raise RuntimeError("Published v2 role prompt hashes mismatch")
+        raise RuntimeError("Published role prompt hashes mismatch")
     if provenance.prompt_version != manifest["prompt_version"]:
-        raise RuntimeError("Published v2 prompt version mismatch")
+        raise RuntimeError("Published prompt version mismatch")
     if provenance.input_manifest_sha256 != expected_manifest_hash:
-        raise RuntimeError("Published v2 input manifest hash mismatch")
+        raise RuntimeError("Published input manifest hash mismatch")
     if provenance.artifact_store != "gcs":
-        raise RuntimeError("Published v2 run was not written through the GCS run store")
+        raise RuntimeError("Published run was not written through the GCS run store")
     if not provenance.cloud_execution:
-        raise RuntimeError("Published v2 run has no Cloud Run execution ID")
+        raise RuntimeError("Published run has no Cloud Run execution ID")
     if (
         not provenance.container_image_digest
         or "@sha256:" not in provenance.container_image_digest
     ):
-        raise RuntimeError("Published v2 run has no immutable container image digest")
+        raise RuntimeError("Published run has no immutable container image digest")
     if not provenance.adk_version:
-        raise RuntimeError("Published v2 run has no ADK version")
+        raise RuntimeError("Published run has no ADK version")
     if run.model != manifest["generation"]["model"]:
-        raise RuntimeError("Published v2 generation model mismatch")
+        raise RuntimeError("Published generation model mismatch")
     if run.embedding_model != manifest["retrieval"]["embedding_model"]:
-        raise RuntimeError("Published v2 embedding model mismatch")
+        raise RuntimeError("Published embedding model mismatch")
+    return manifest_name
 
 
-def _validated_run(content: bytes, *, require_cloud_v2: bool = False) -> EvaluationRun:
+def _validated_run(
+    content: bytes,
+    *,
+    require_cloud: bool = False,
+    expected_experiment_manifest: str | None = None,
+) -> EvaluationRun:
     run = EvaluationRun.model_validate_json(content)
-    if require_cloud_v2 and run.experiment_id == "ecr-poc-preregistered-v2":
-        _validate_cloud_v2_provenance(run)
+    is_versioned = (
+        run.experiment_id.startswith("ecr-poc-preregistered-v")
+        and run.experiment_id != "ecr-poc-preregistered-v1"
+    )
+    if require_cloud:
+        if not is_versioned:
+            raise RuntimeError("Published Cloud run is not a versioned experiment")
+        _validate_cloud_provenance(run, expected_experiment_manifest)
     recalculated = calculate_metrics(run.cases)
     if run.metrics != recalculated:
         raise RuntimeError("Published evaluation metrics do not match raw cases")
     if len(run.cases) != 18:
         raise RuntimeError("Published evaluation is not a complete 18-case run")
     for case in run.cases:
-        if run.experiment_id == "ecr-poc-preregistered-v2" and case.run_id != run.run_id:
+        if is_versioned and case.run_id != run.run_id:
             raise RuntimeError(f"{case.case_id} does not use the evaluation run ID")
-        if run.experiment_id == "ecr-poc-preregistered-v2" and (
+        if is_versioned and (
             case.provider != run.provider
             or case.model != run.model
             or case.embedding_model != run.embedding_model
@@ -338,7 +365,7 @@ def _validated_run(content: bytes, *, require_cloud_v2: bool = False) -> Evaluat
                 or not review.verifier_reason
             ):
                 raise RuntimeError(f"{case.case_id} exposes an unsupported verified review")
-            if run.experiment_id == "ecr-poc-preregistered-v2":
+            if is_versioned:
                 matching_verdicts = [
                     item
                     for item in verifier_items
@@ -356,7 +383,12 @@ def _validated_run(content: bytes, *, require_cloud_v2: bool = False) -> Evaluat
     return run
 
 
-def publish_run(bucket_name: str, run_id: str, source_commit: str) -> PublishedPointer:
+def publish_run(
+    bucket_name: str,
+    run_id: str,
+    source_commit: str,
+    experiment_manifest: str,
+) -> PublishedPointer:
     client = _storage_client()
     bucket = client.bucket(bucket_name)
     failure_blob = bucket.blob(f"runs/{run_id}/failure.json")
@@ -379,7 +411,11 @@ def publish_run(bucket_name: str, run_id: str, source_commit: str) -> PublishedP
         or final_record.get("sha256") != hashlib.sha256(content).hexdigest()
     ):
         raise RuntimeError("Run completion checkpoint does not seal evaluation.json")
-    run = _validated_run(content, require_cloud_v2=True)
+    run = _validated_run(
+        content,
+        require_cloud=True,
+        expected_experiment_manifest=experiment_manifest,
+    )
     if run.run_id != run_id:
         raise RuntimeError("Run ID does not match its GCS object path")
     if run.provenance is None or run.provenance.source_commit != source_commit:
@@ -392,6 +428,7 @@ def publish_run(bucket_name: str, run_id: str, source_commit: str) -> PublishedP
         sha256=hashlib.sha256(content).hexdigest(),
         published_at=datetime.now(UTC).isoformat(),
         source_commit=source_commit,
+        experiment_manifest=experiment_manifest,
     )
     pointer_blob = bucket.blob("published/demo.json")
     pointer_generation = 0
@@ -419,13 +456,27 @@ def load_published_run(bucket_name: str) -> tuple[EvaluationRun, PublishedPointe
     content = result_blob.download_as_bytes(if_generation_match=pointer.generation)
     if hashlib.sha256(content).hexdigest() != pointer.sha256:
         raise RuntimeError("Published result SHA-256 mismatch")
-    run = _validated_run(content, require_cloud_v2=True)
+    expected_manifest = pointer.experiment_manifest or experiment_manifest_name(
+        pointer.experiment_id
+    )
+    if (
+        pointer.experiment_id != "ecr-poc-preregistered-v2"
+        and not pointer.experiment_manifest
+    ):
+        raise RuntimeError("Published v3 pointer has no experiment manifest")
+    run = _validated_run(
+        content,
+        require_cloud=True,
+        expected_experiment_manifest=expected_manifest,
+    )
     if run.run_id != pointer.run_id or run.experiment_id != pointer.experiment_id:
         raise RuntimeError("Published pointer identity mismatch")
-    if run.experiment_id == "ecr-poc-preregistered-v2" and (
+    if (
         pointer.object_name != f"runs/{run.run_id}/evaluation.json"
         or run.provenance is None
         or pointer.source_commit != run.provenance.source_commit
+        or expected_manifest
+        != (run.provenance.experiment_manifest or experiment_manifest_name(run.experiment_id))
     ):
-        raise RuntimeError("Published v2 pointer provenance mismatch")
+        raise RuntimeError("Published pointer provenance mismatch")
     return run, pointer

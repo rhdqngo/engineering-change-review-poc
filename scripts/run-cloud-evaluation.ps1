@@ -19,16 +19,16 @@ if (-not [string]::IsNullOrWhiteSpace($status)) {
 }
 $head = git rev-parse HEAD
 $originMain = git rev-parse origin/main
-$freezeTag = git rev-parse refs/tags/ecr-poc-v2-freeze
+$freezeTag = git rev-parse refs/tags/ecr-poc-v3-freeze
 if ($LASTEXITCODE -ne 0 -or $head -ne $originMain -or $head -ne $freezeTag) {
-    throw "HEAD, origin/main, and ecr-poc-v2-freeze must identify the same commit."
+    throw "HEAD, origin/main, and ecr-poc-v3-freeze must identify the same commit."
 }
 
 $projectNumber = gcloud projects describe $ProjectId --format "value(projectNumber)"
 $bucketName = "ecr-poc-$projectNumber-$Region"
 $timestamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
 $suffix = [guid]::NewGuid().ToString("N").Substring(0, 8)
-$runId = "cloud-v2-$timestamp-$suffix"
+$runId = "cloud-v3-$timestamp-$suffix"
 
 $executionName = gcloud run jobs execute ecr-poc-evaluate `
     --project $ProjectId `

@@ -64,7 +64,16 @@ def test_cloud_v2_integrity_requires_one_supported_verifier_verdict() -> None:
             trace["model"] = "gemini-3.5-flash"
 
     content = json.dumps(payload).encode("utf-8")
-    assert _validated_run(content, require_cloud_v2=True).run_id == "strict-v2-run"
+    payload["provenance"].pop("experiment_manifest")
+    content = json.dumps(payload).encode("utf-8")
+    assert (
+        _validated_run(
+            content,
+            require_cloud=True,
+            expected_experiment_manifest="ecr-poc-v2.json",
+        ).run_id
+        == "strict-v2-run"
+    )
 
     first_case = payload["cases"][0]
     verifier = next(
@@ -76,4 +85,26 @@ def test_cloud_v2_integrity_requires_one_supported_verifier_verdict() -> None:
         verifier["parsed"]["verifications"][0]
     )
     with pytest.raises(RuntimeError, match="one supported verifier verdict"):
-        _validated_run(json.dumps(payload).encode("utf-8"), require_cloud_v2=True)
+        _validated_run(
+            json.dumps(payload).encode("utf-8"),
+            require_cloud=True,
+            expected_experiment_manifest="ecr-poc-v2.json",
+        )
+
+
+def test_cloud_v3_integrity_requires_explicit_manifest() -> None:
+    run = asyncio.run(
+        evaluate(
+            provider_name="fixture",
+            embedding_provider="local",
+            output_path=Path(".runtime/test-v3-publication.json"),
+            experiment_manifest="ecr-poc-v3.json",
+            run_id="strict-v3-run",
+            source_commit="0123456789abcdef",
+            update_latest=False,
+        )
+    )
+    payload = run.model_dump(mode="json")
+    payload["provenance"]["experiment_manifest"] = None
+    with pytest.raises(ValueError, match="require an experiment manifest"):
+        _validated_run(json.dumps(payload).encode("utf-8"))

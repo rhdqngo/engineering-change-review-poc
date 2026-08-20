@@ -22,9 +22,9 @@ if (-not [string]::IsNullOrWhiteSpace($status)) {
 }
 $head = git rev-parse HEAD
 $originMain = git rev-parse origin/main
-$freezeTag = git rev-parse refs/tags/ecr-poc-v2-freeze
+$freezeTag = git rev-parse refs/tags/ecr-poc-v3-freeze
 if ($LASTEXITCODE -ne 0 -or $head -ne $originMain -or $head -ne $freezeTag) {
-    throw "HEAD, origin/main, and ecr-poc-v2-freeze must identify the same commit."
+    throw "HEAD, origin/main, and ecr-poc-v3-freeze must identify the same commit."
 }
 
 $projectNumber = gcloud projects describe $ProjectId --format "value(projectNumber)"
@@ -37,7 +37,8 @@ $env:UV_CACHE_DIR = ".cache\uv"
 uv run ecr-poc publish-run `
     --bucket $bucketName `
     --run-id $RunId `
-    --source-commit $head
+    --source-commit $head `
+    --experiment-manifest ecr-poc-v3.json
 if ($LASTEXITCODE -ne 0) {
     throw "Completed run validation/publication failed."
 }

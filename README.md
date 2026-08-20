@@ -49,11 +49,11 @@ The command validates frozen hashes first and writes per-role raw outputs, candi
 - Selection rationale: `docs/data-selection.md`
 - Deployment preparation: `deploy/README.md`
 
-## Verifiable v2 Cloud batch
+## Verifiable v3 Cloud batch
 
-V2 adds a remote freeze tag, prompt hashes, source/image provenance, GCS input and result storage, a least-privilege Cloud Run Job, structured logs, and explicit publication.
+V3 preserves the accepted v2 result while closing its last loading-copy finding. It reuses the frozen cases and v2 role prompts, and records an explicit v3 manifest in both run provenance and the published pointer.
 
-After local validation, the implementation commit and `ecr-poc-v2-freeze` tag must be pushed with approval. Each external phase then has its own approval switch:
+After local validation, the implementation commit and `ecr-poc-v3-freeze` tag must identify the same remote commit. Each external phase retains its explicit approval switch:
 
 ```powershell
 .\scripts\provision-gcp.ps1 -ProjectId iceu-687 -ApproveBillableResources
@@ -63,4 +63,4 @@ After local validation, the implementation commit and `ecr-poc-v2-freeze` tag mu
 .\scripts\verify-cloud-run.ps1 -ProjectId iceu-687
 ```
 
-The browser never triggers a billable model run. It displays deterministic fixtures or the explicitly published GCS result. See `docs/experiment-protocol-v2.md` for the freeze and publication contract.
+The browser never triggers a billable model run. It displays deterministic fixtures or the explicitly published GCS result. See `docs/experiment-protocol-v3.md` for the current freeze and publication contract; the v2 report remains historical evidence.

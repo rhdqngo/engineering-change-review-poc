@@ -1,7 +1,7 @@
 # Current Project State
 
-status: complete
-phase: verifiable-v2-cloud-completion
+status: in-progress
+phase: verifiable-v3-cloud-closure
 updated: 2026-08-20
 
 ## Objective
@@ -54,9 +54,11 @@ The result is accepted based on complete execution and evidence integrity, not a
 
 V1 raw results remain historical and hash-consistent, but are not claimed as externally timed preregistration. The first completed v2 run also remains immutable, but was superseded after its deployed UI failed provenance presentation review. The corrected UI was re-frozen before the final run above.
 
-## Blockers and next checkpoint
+## Active v3 closure
 
-No completion blocker remains. Any future work is a new milestone, most plausibly reducing control false alarms and re-running under a new experiment version rather than modifying this frozen v2 result.
+The user approved a new v3 freeze and full 18-case rerun to remove the last cold-start copy finding instead of retaining it as a documented v2 exception. V2 remains immutable and published until a complete v3 run passes storage, provenance, Cloud, and browser validation.
+
+Next checkpoint: implement and validate the version-aware v3 manifest and loading-state repair, then commit and remotely tag the exact pre-run implementation as `ecr-poc-v3-freeze`.
 
 ## Related artifacts
 

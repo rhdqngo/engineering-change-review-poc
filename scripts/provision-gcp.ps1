@@ -19,9 +19,9 @@ if (-not [string]::IsNullOrWhiteSpace($status)) {
 }
 $head = git rev-parse HEAD
 $originMain = git rev-parse origin/main
-$freezeTag = git rev-parse refs/tags/ecr-poc-v2-freeze
+$freezeTag = git rev-parse refs/tags/ecr-poc-v3-freeze
 if ($LASTEXITCODE -ne 0 -or $head -ne $originMain -or $head -ne $freezeTag) {
-    throw "HEAD, origin/main, and ecr-poc-v2-freeze must identify the same commit."
+    throw "HEAD, origin/main, and ecr-poc-v3-freeze must identify the same commit."
 }
 
 $projectNumber = gcloud projects describe $ProjectId --format "value(projectNumber)"
@@ -126,9 +126,9 @@ foreach ($runtimeAccount in @($webServiceAccount, $jobServiceAccount)) {
 }
 
 $env:UV_CACHE_DIR = ".cache\uv"
-uv run ecr-poc upload-freeze --bucket $bucketName --prefix frozen/ecr-poc-v2
+uv run ecr-poc upload-freeze --bucket $bucketName --prefix frozen/ecr-poc-v3
 if ($LASTEXITCODE -ne 0) {
-    throw "Immutable v2 input upload failed."
+    throw "Immutable v3 input upload failed."
 }
 uv run ecr-poc upload-historical --bucket $bucketName
 if ($LASTEXITCODE -ne 0) {

@@ -52,15 +52,19 @@ def _parser() -> argparse.ArgumentParser:
     evaluation.add_argument("--cloud-execution")
     evaluation.add_argument("--container-image-digest")
     cloud_evaluation = subcommands.add_parser(
-        "cloud-evaluate", help="run the frozen v2 experiment from and to GCS"
+        "cloud-evaluate", help="run a frozen versioned experiment from and to GCS"
     )
     cloud_evaluation.add_argument("--provider", default="vertex-adk")
     cloud_evaluation.add_argument("--embedding", default="vertex")
+    cloud_evaluation.add_argument(
+        "--experiment-manifest",
+        default=os.environ.get("ECR_EXPERIMENT_MANIFEST", "ecr-poc-v3.json"),
+    )
     upload_freeze = subcommands.add_parser(
         "upload-freeze", help="immutably upload frozen inputs to GCS"
     )
     upload_freeze.add_argument("--bucket", required=True)
-    upload_freeze.add_argument("--prefix", default="frozen/ecr-poc-v2")
+    upload_freeze.add_argument("--prefix", default="frozen/ecr-poc-v3")
     upload_history = subcommands.add_parser(
         "upload-historical", help="immutably upload the retained v1 result to GCS"
     )
@@ -75,6 +79,7 @@ def _parser() -> argparse.ArgumentParser:
     publish.add_argument("--bucket", required=True)
     publish.add_argument("--run-id", required=True)
     publish.add_argument("--source-commit", required=True)
+    publish.add_argument("--experiment-manifest", required=True)
     verify = subcommands.add_parser(
         "verify-published", help="validate the published GCS evaluation pointer"
     )
@@ -139,7 +144,7 @@ def main() -> None:
         bucket = os.environ["ECR_GCS_BUCKET"]
         run_id = os.environ["ECR_RUN_ID"]
         source_commit = os.environ["ECR_SOURCE_COMMIT"]
-        input_prefix = os.environ.get("ECR_GCS_INPUT_PREFIX", "frozen/ecr-poc-v2")
+        input_prefix = os.environ.get("ECR_GCS_INPUT_PREFIX", "frozen/ecr-poc-v3")
         with tempfile.TemporaryDirectory(prefix="ecr-poc-input-") as temporary:
             root = Path(temporary)
             materialize_gcs_prefix(bucket, input_prefix, root)
@@ -151,7 +156,7 @@ def main() -> None:
                     root=root,
                     run_id=run_id,
                     run_store=store,
-                    experiment_manifest="ecr-poc-v2.json",
+                    experiment_manifest=args.experiment_manifest,
                     source_commit=source_commit,
                     cloud_execution=(
                         os.environ.get("CLOUD_RUN_EXECUTION")
@@ -184,7 +189,10 @@ def main() -> None:
     if args.command == "publish-run":
         print(
             publish_run(
-                args.bucket, args.run_id, args.source_commit
+                args.bucket,
+                args.run_id,
+                args.source_commit,
+                args.experiment_manifest,
             ).model_dump_json(indent=2)
         )
         return

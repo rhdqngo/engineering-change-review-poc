@@ -6,7 +6,7 @@ function humanStatus(value) {
 }
 
 function compactRunId(runId) {
-  return runId.startsWith("cloud-v2-") ? runId.slice("cloud-v2-".length) : runId;
+  return runId.replace(/^cloud-v\d+-/, "");
 }
 
 function resultFor(sourceId) {
@@ -98,7 +98,7 @@ async function runCase() {
     state.resultMetadata = payload.result_metadata || null;
     renderResult(payload.result_source);
   } catch (error) {
-    $("#error").textContent = `Case run failed: ${error.message}`;
+    $("#error").textContent = `Result load failed: ${error.message}`;
     $("#error").hidden = false;
   } finally {
     $("#run-button").disabled = false;

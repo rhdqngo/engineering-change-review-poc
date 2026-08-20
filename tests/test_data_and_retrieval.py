@@ -44,21 +44,26 @@ def test_retrieval_is_deterministic() -> None:
     assert [item.model_dump() for item in first] == [item.model_dump() for item in second]
 
 
-def test_v2_prompt_drift_breaks_the_experiment_freeze() -> None:
+def test_v3_prompt_drift_breaks_the_experiment_freeze() -> None:
     test_root = repository_root() / ".runtime" / "test-data-drift"
     shutil.copytree(repository_root() / "data", test_root / "data", dirs_exist_ok=True)
     prompt_path = test_root / "data" / "prompts" / "ecr-poc-v2.json"
     prompt_path.write_text(prompt_path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
-    with pytest.raises(DataIntegrityError, match="v2 frozen file hash mismatch"):
+    with pytest.raises(DataIntegrityError, match="v3 frozen file hash mismatch"):
         validate_experiment_manifest(test_root)
 
 
-def test_v2_role_prompt_hash_drift_breaks_the_experiment_freeze() -> None:
+def test_v3_role_prompt_hash_drift_breaks_the_experiment_freeze() -> None:
     test_root = repository_root() / ".runtime" / "test-role-prompt-drift"
     shutil.copytree(repository_root() / "data", test_root / "data", dirs_exist_ok=True)
-    manifest_path = test_root / "data" / "experiments" / "ecr-poc-v2.json"
+    manifest_path = test_root / "data" / "experiments" / "ecr-poc-v3.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["prompt_hashes"]["engineering_review"] = "0" * 64
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-    with pytest.raises(DataIntegrityError, match="v2 role prompt hash mismatch"):
+    with pytest.raises(DataIntegrityError, match="v3 role prompt hash mismatch"):
         validate_experiment_manifest(test_root)
+
+
+def test_v2_manifest_remains_valid_for_historical_results() -> None:
+    validated = validate_experiment_manifest(name="ecr-poc-v2.json")
+    assert "data/cases/freeze.json" in validated

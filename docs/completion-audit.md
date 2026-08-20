@@ -1,7 +1,7 @@
 # Completion Audit
 
 updated: 2026-08-20
-overall: complete
+overall: v2-complete; v3-closure-awaiting-remote-freeze
 
 | # | Requirement | Status | Authoritative evidence |
 | --- | --- | --- | --- |
@@ -19,4 +19,4 @@ overall: complete
 
 Final accepted identity: run `cloud-v2-20260820T035505Z-56ad91df`, execution `ecr-poc-evaluate-587r6`, revision `ecr-poc-00005-485`, generation `1787198456573991`, SHA-256 `8ac24782609bcd61f9589f78f9786468ab6badd16e8461298287e4ad2be2ffb0`.
 
-The measured result is deliberately accepted without an accuracy threshold: 18/18 completion and evidence integrity are the acceptance conditions. The observed 4/6 control false-alarm rate remains a documented product limitation.
+The measured v2 result remains accepted without an accuracy threshold. A separately versioned v3 rerun is now authorized to close the last cold-start wording finding; v2 remains published until v3 independently satisfies the same evidence and Cloud acceptance gates.

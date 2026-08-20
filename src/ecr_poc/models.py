@@ -134,6 +134,7 @@ class PipelineResult(StrictModel):
 class RunProvenance(StrictModel):
     source_commit: str
     freeze_tag: str
+    experiment_manifest: str | None = None
     prompt_version: str
     prompt_hashes: dict[str, str]
     input_manifest_sha256: str
@@ -158,9 +159,17 @@ class EvaluationRun(StrictModel):
     provenance: RunProvenance | None = None
 
     @model_validator(mode="after")
-    def v2_requires_provenance(self) -> EvaluationRun:
-        if self.experiment_id == "ecr-poc-preregistered-v2" and self.provenance is None:
-            raise ValueError("v2 evaluation runs require provenance")
+    def versioned_runs_require_provenance(self) -> EvaluationRun:
+        prefix = "ecr-poc-preregistered-v"
+        if self.experiment_id.startswith(prefix):
+            version_text = self.experiment_id.removeprefix(prefix)
+            if version_text.isdigit() and int(version_text) >= 2:
+                if self.provenance is None:
+                    raise ValueError("Versioned evaluation runs require provenance")
+                if int(version_text) >= 3 and not self.provenance.experiment_manifest:
+                    raise ValueError(
+                        "v3 and later evaluation runs require an experiment manifest"
+                    )
         return self
 
 
@@ -172,3 +181,4 @@ class PublishedPointer(StrictModel):
     sha256: str
     published_at: str
     source_commit: str
+    experiment_manifest: str | None = None

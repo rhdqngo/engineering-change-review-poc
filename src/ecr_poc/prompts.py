@@ -18,7 +18,10 @@ class PromptBundle(BaseModel):
 
 
 @lru_cache(maxsize=4)
-def load_prompt_bundle(root: Path | None = None) -> PromptBundle:
+def load_prompt_bundle(
+    root: Path | None = None,
+    relative_path: str = "data/prompts/ecr-poc-v2.json",
+) -> PromptBundle:
     root = root or repository_root()
-    path = root / "data" / "prompts" / "ecr-poc-v2.json"
+    path = root / relative_path
     return PromptBundle.model_validate_json(path.read_text(encoding="utf-8"))

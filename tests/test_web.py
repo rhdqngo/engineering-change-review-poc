@@ -73,9 +73,12 @@ def test_published_ui_preserves_provenance_and_accessible_selection() -> None:
     assert 'compactRunId(publishedRunId)' in script
     assert 'publishedRunId || "unknown run"' in script
     assert '!isFixture && publishedRunId ? `Published run ${publishedRunId}`' in script
+    assert 'replace(/^cloud-v\\d+-/, "")' in script
     assert 'setAttribute("aria-pressed"' in script
     assert 'setAttribute("aria-controls", "evidence-desk")' in script
     assert '<button id="run-button" type="button" disabled>Reload result</button>' in markup
+    assert 'Loading review disposition…' in markup
+    assert 'Run a case to inspect its review disposition.' not in markup
     assert 'id="evidence-desk"' in markup
     assert 'aria-live="polite"' in markup
     assert '.source-button { width: 100%; padding: 4px 0; min-height: 38px;' in styles
