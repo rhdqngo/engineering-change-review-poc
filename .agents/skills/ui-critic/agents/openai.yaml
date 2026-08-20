@@ -1,0 +1,7 @@
+interface:
+  display_name: "UI Critic"
+  short_description: "Independently review UI states, input, perceptual comfort, cross-screen consistency, and explanatory copy."
+  default_prompt: "Review the implemented UI in review-only mode. Separate rendered and source evidence, and evaluate perceptual comfort, cross-screen consistency, narrative restraint, and copy necessity. Do not modify product code or approval state unless the user explicitly asks."
+
+policy:
+  allow_implicit_invocation: true

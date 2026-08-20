@@ -1,0 +1,7 @@
+interface:
+  display_name: "Handoff"
+  short_description: "At session end, update the local handoff and, when needed, the shared current status from real repository evidence."
+  default_prompt: "Inspect actual Git, validation, and UI state; update docs/notes/handoff.local.md; and synchronize docs/plans/current.md only when the milestone, blocker, or validation state changed. Do not commit or push."
+
+policy:
+  allow_implicit_invocation: true

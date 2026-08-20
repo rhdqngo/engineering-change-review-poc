@@ -1,0 +1,40 @@
+status: draft
+screen_or_flow:
+context: game | non-game
+primary_user_goal:
+primary_interaction_mode:
+secondary_interaction_modes: []
+platforms: []
+viewports: []
+input_methods: []
+urgency: low | medium | high | critical
+density: sparse | moderate | dense
+consequence: reversible | recoverable | destructive | financial | competitive
+user_expertise: novice | mixed | expert
+information:
+  critical: []
+  primary: []
+  supporting: []
+  optional: []
+actions:
+  primary: []
+  secondary: []
+  destructive: []
+required_states: []
+content_stress_cases: []
+foundation_version:
+relevant_precedents: []
+assumptions: []
+
+perceptual_constraints:
+  alignment_lines: []
+  text_fit_roles: []
+  icon_label_roles: []
+  layout_stability_transitions: []
+  cross_screen_comparisons: []
+narrative_constraints:
+  persistent_copy_roles: []
+  contextual_help: []
+  first_use_guidance: []
+  copy_to_remove_or_defer: []
+  explanation_deletion_test: unverified

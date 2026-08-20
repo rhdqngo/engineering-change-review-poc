@@ -1,0 +1,20 @@
+# Project-scoped Codex settings.
+# This .codex layer is loaded only when the project is trusted.
+# AGENTS.md and repository skills use separate discovery paths; check them independently with /status and /skills.
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+project_doc_max_bytes = 32768
+
+[sandbox_workspace_write]
+# Outbound network access is blocked by default.
+# Use the approval flow for package installation or external documentation access.
+network_access = false
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 4
+
+[windows]
+# Use the lower-privilege native Windows sandbox mode when available.
+sandbox = "unelevated"
