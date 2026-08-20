@@ -1,0 +1,14 @@
+.git
+.venv
+.cache
+.runtime
+.test-tmp
+.pytest_cache
+.bootstrap-work
+.ui-probes
+dist
+docs
+tests
+*.pyc
+__pycache__
+pytest-cache-files-*
