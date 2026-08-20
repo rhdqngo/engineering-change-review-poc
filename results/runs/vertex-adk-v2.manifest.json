@@ -1,0 +1,14 @@
+{
+  "experiment_id": "ecr-poc-preregistered-v2",
+  "run_id": "cloud-v2-20260820T035505Z-56ad91df",
+  "source_commit": "10c59bfba3e1b37afde026548f4c1f51ec6526ed",
+  "freeze_tag": "ecr-poc-v2-freeze",
+  "cloud_execution": "ecr-poc-evaluate-587r6",
+  "cloud_run_revision": "ecr-poc-00005-485",
+  "container_image_digest": "asia-northeast3-docker.pkg.dev/iceu-687/cloud-run-source-deploy/ecr-poc@sha256:65d65dc7924ca535c4d8c659d13e1297155c83dda993755c83399350a7b164c6",
+  "gcs_object": "gs://ecr-poc-912838451352-asia-northeast3/runs/cloud-v2-20260820T035505Z-56ad91df/evaluation.json",
+  "gcs_generation": 1787198456573991,
+  "sha256": "8ac24782609bcd61f9589f78f9786468ab6badd16e8461298287e4ad2be2ffb0",
+  "published_at": "2026-08-20T04:01:19.342489+00:00",
+  "case_count": 18
+}

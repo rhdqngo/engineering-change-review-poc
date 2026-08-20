@@ -2,6 +2,8 @@
 
 This repository contains a frozen experiment over a pinned NASA cFS `sample_app` v7.0.1 subset. It compares a baseline fixed Hybrid Retrieval Top-6 with a proposed three-role Google ADK review over the exact same candidates. Only exact source spans supported by an independent verifier can reach final review output. The retained v1 result is hash-consistent but is not claimed as externally timed preregistration; the v2 Cloud protocol establishes that evidence with a remote freeze tag before execution.
 
+The accepted v2 Cloud run is `cloud-v2-20260820T035505Z-56ad91df`: 18/18 cases completed, retrieval coverage was 10/12, conditional review success was 9/10, and 4/6 control cases produced at least one false alarm. See `docs/results/experiment-report-v2.md` for provenance, limitations, and immutable result identity.
+
 ## Setup and commands
 
 Requires Python 3.13 and [uv](https://docs.astral.sh/uv/).

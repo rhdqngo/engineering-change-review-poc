@@ -7,11 +7,21 @@ updated: 2026-08-20
 
 ## V2 completion status
 
-The original v1 service history remains below. V2 provisioning, same-digest service/Job deployment, and a valid first 18-case execution/publication completed. Independent browser audit rejected the deployed provenance presentation because the run ID was ambiguously truncated and the footer called v2 a legacy freeze. The immutable run remains in GCS; a corrected remote freeze and full rerun will establish the final accepted result.
+V2 is complete and published. The final corrective freeze is `ecr-poc-v2-freeze` at `10c59bfba3e1b37afde026548f4c1f51ec6526ed`. Revision `ecr-poc-00005-485` and Job `ecr-poc-evaluate` use the same immutable image digest `sha256:65d65dc7924ca535c4d8c659d13e1297155c83dda993755c83399350a7b164c6`.
 
-The first approved v2 provisioning attempt created `ecr-poc-912838451352-asia-northeast3` with uniform bucket-level access, then stopped before service-account, IAM, or upload steps. The installed gcloud release rejected value-form PAP/versioning flags; the script was corrected to the supported boolean flags and must be re-frozen before the idempotent retry. No v2 model call occurred.
+- Final execution: `ecr-poc-evaluate-587r6`
+- Final run: `cloud-v2-20260820T035505Z-56ad91df`
+- Result: `runs/cloud-v2-20260820T035505Z-56ad91df/evaluation.json`
+- Generation: `1787198456573991`
+- SHA-256: `8ac24782609bcd61f9589f78f9786468ab6badd16e8461298287e4ad2be2ffb0`
+- Published pointer updated: `2026-08-20T04:01:19.342489Z`
+- Result: 18/18 cases, zero role errors, publication validation passed
 
-The corrective retry completed bucket hardening, dedicated identities, IAM, frozen/historical uploads, and deployed private revision `ecr-poc-00003-wn5` plus the evaluation Job at image digest `sha256:091dd2d1d37f35d45f47ce733afda87c1432e92750be785d8b626175f4e3bd88`. Pre-run inspection stopped execution because PowerShell serialized the five Job arguments as one string and the verifier used an incorrect Job JSON path. Both defects are being re-frozen before redeployment; no v2 model call occurred.
+The hardened bucket `ecr-poc-912838451352-asia-northeast3` has uniform bucket access, public-access prevention, and versioning. The web identity has bucket `storage.objectViewer`; the Job identity has bucket `storage.objectUser` and project `aiplatform.user`. Neither new identity has Editor, Owner, or Storage Admin. The service remains private and unauthenticated requests return 403.
+
+The first v2 provisioning attempt stopped before service-account, IAM, or upload steps because the installed gcloud release rejected value-form PAP/versioning flags. The corrected retry created the hardened bucket and dedicated identities. A subsequent pre-run inspection caught Job argument serialization and verifier JSON-path defects before a model call; both were fixed and re-frozen.
+
+The first completed v2 run (`cloud-v2-20260820T032620Z-bc550a11`) passed pipeline, GCS, IAM, logging, and private-access validation. An independent browser audit then rejected its provenance presentation because the visible run ID was ambiguously truncated and the footer said `legacy freeze`. That immutable result remains historical. The UI was corrected, committed and tagged before the final redeploy and 18-case rerun above.
 
 ## Approved attempt 1
 

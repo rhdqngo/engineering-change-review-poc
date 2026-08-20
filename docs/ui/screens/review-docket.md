@@ -18,7 +18,7 @@ primary action: inspect a frozen case's verified review selection
 ## Inputs
 
 - Mouse/touch selection of a candidate row.
-- Keyboard focus and activation for case select, Run case, and source buttons.
+- Keyboard focus and activation for case select, `Reload result`, and source buttons.
 
 ## Non-goals
 
