@@ -19,9 +19,9 @@ if (-not [string]::IsNullOrWhiteSpace($status)) {
 }
 $head = git rev-parse HEAD
 $originMain = git rev-parse origin/main
-$freezeTag = git rev-parse refs/tags/ecr-poc-v3-freeze
+$freezeTag = git rev-parse refs/tags/ecr-poc-v4-freeze
 if ($LASTEXITCODE -ne 0 -or $head -ne $originMain -or $head -ne $freezeTag) {
-    throw "HEAD, origin/main, and ecr-poc-v3-freeze must identify the same commit."
+    throw "HEAD, origin/main, and ecr-poc-v4-freeze must identify the same commit."
 }
 
 $projectNumber = gcloud projects describe $ProjectId --format "value(projectNumber)"
@@ -38,7 +38,7 @@ $webEnvironment = @(
     "ECR_RESULT_STORE=gcs"
     "ECR_GCS_BUCKET=$bucketName"
     "ECR_PUBLISHED_OBJECT=published/demo.json"
-    "ECR_FREEZE_VERSION=ecr-poc-preregistered-v3"
+    "ECR_FREEZE_VERSION=ecr-poc-preregistered-v4"
     "ECR_SOURCE_COMMIT=$head"
 ) -join ","
 
@@ -91,8 +91,8 @@ $jobEnvironment = @(
     "ECR_EMBEDDING_MODEL=gemini-embedding-001"
     "ECR_ROLE_TIMEOUT_SECONDS=120"
     "ECR_GCS_BUCKET=$bucketName"
-    "ECR_GCS_INPUT_PREFIX=frozen/ecr-poc-v3"
-    "ECR_EXPERIMENT_MANIFEST=ecr-poc-v3.json"
+    "ECR_GCS_INPUT_PREFIX=frozen/ecr-poc-v4"
+    "ECR_EXPERIMENT_MANIFEST=ecr-poc-v4.json"
     "ECR_SOURCE_COMMIT=$head"
     "ECR_CONTAINER_IMAGE_DIGEST=$imageDigest"
 ) -join ","

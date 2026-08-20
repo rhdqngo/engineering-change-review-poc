@@ -108,3 +108,21 @@ def test_cloud_v3_integrity_requires_explicit_manifest() -> None:
     payload["provenance"]["experiment_manifest"] = None
     with pytest.raises(ValueError, match="require an experiment manifest"):
         _validated_run(json.dumps(payload).encode("utf-8"))
+
+
+def test_cloud_v4_integrity_requires_explicit_manifest() -> None:
+    run = asyncio.run(
+        evaluate(
+            provider_name="fixture",
+            embedding_provider="local",
+            output_path=Path(".runtime/test-v4-publication.json"),
+            experiment_manifest="ecr-poc-v4.json",
+            run_id="strict-v4-run",
+            source_commit="0123456789abcdef",
+            update_latest=False,
+        )
+    )
+    payload = run.model_dump(mode="json")
+    payload["provenance"]["experiment_manifest"] = None
+    with pytest.raises(ValueError, match="require an experiment manifest"):
+        _validated_run(json.dumps(payload).encode("utf-8"))

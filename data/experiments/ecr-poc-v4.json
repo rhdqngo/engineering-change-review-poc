@@ -1,0 +1,40 @@
+{
+  "experiment_id": "ecr-poc-preregistered-v4",
+  "base_experiment_id": "ecr-poc-preregistered-v1",
+  "supersedes_experiment_id": "ecr-poc-preregistered-v3",
+  "freeze_tag": "ecr-poc-v4-freeze",
+  "results_observed_before_freeze": false,
+  "top_k": 6,
+  "case_counts": {
+    "direct": 4,
+    "semantic": 4,
+    "cross_artifact": 4,
+    "clean": 3,
+    "benign": 3
+  },
+  "retrieval": {
+    "lexical": "BM25(k1=1.5,b=0.75)",
+    "fusion": {
+      "bm25": 0.5,
+      "embedding": 0.5,
+      "normalization": "min-max"
+    },
+    "embedding_model": "gemini-embedding-001"
+  },
+  "generation": {
+    "model": "gemini-3.5-flash",
+    "temperature": 0,
+    "role_timeout_seconds": 120
+  },
+  "files": {
+    "data/cases/freeze.json": "e6b2bb6a07960552126b7df9e26452f9b44f3d022a7ff7b202241cbfbdccfafb",
+    "data/prompts/ecr-poc-v2.json": "ccbf675537f0da4bda239f69359195866fee7329e4c1f74af4a1cf50fa7dc79f"
+  },
+  "prompt_file": "data/prompts/ecr-poc-v2.json",
+  "prompt_version": "ecr-poc-prompts-v2",
+  "prompt_hashes": {
+    "change_analyst": "5a840bea138ff965ea727e5498401d573cb563c75f978b3e27a6ab8bdfecac1f",
+    "engineering_review": "d014f104f679b742153b8746059d7584c21f561b98ce494a4763ad10e3733e9b",
+    "evidence_verifier": "9e6057d53ad3ebe7bf68754cf06f50918c862522cb91a952e935eb3afe3a21a6"
+  }
+}

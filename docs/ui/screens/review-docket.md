@@ -36,3 +36,9 @@ No change editing, source mutation, reviewer approval, prompt display, or live V
 - Initial Evidence desk state says `Loading review disposition…`; it does not instruct the user to run a case.
 - `Reload result` remains disabled until the initial result resolves.
 - Loaded, error, fixture, published, evidence, and responsive behavior remain unchanged.
+
+## V4 interaction-integrity repair
+
+- Only the latest case/source request may update result state, provenance, errors, or action availability; superseded requests are aborted and ignored.
+- `Reload result` remains a single-line control at 390 × 844 without creating body-wide overflow.
+- If keyboard focus owned Reload when it initiated the latest request, focus returns after the control is re-enabled. Case/source initiated loads retain their native control focus.

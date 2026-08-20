@@ -102,6 +102,26 @@ def test_v3_fixture_run_records_manifest_and_unchanged_prompts() -> None:
     assert all(case.run_id == "test-v3-run" for case in run.cases)
 
 
+def test_v4_fixture_run_records_manifest_and_unchanged_prompts() -> None:
+    run = asyncio.run(
+        evaluate(
+            provider_name="fixture",
+            embedding_provider="local",
+            output_path=Path(".runtime/test-evaluation-v4.json"),
+            experiment_manifest="ecr-poc-v4.json",
+            run_id="test-v4-run",
+            source_commit="abcdef0123456789",
+            update_latest=False,
+        )
+    )
+    assert run.experiment_id == "ecr-poc-preregistered-v4"
+    assert run.provenance is not None
+    assert run.provenance.freeze_tag == "ecr-poc-v4-freeze"
+    assert run.provenance.experiment_manifest == "ecr-poc-v4.json"
+    assert run.provenance.prompt_version == "ecr-poc-prompts-v2"
+    assert all(case.run_id == "test-v4-run" for case in run.cases)
+
+
 def test_checkpoint_failure_records_failure_and_never_writes_final() -> None:
     store = CheckpointFailingStore()
     with pytest.raises(PermissionError, match="simulated checkpoint denial"):

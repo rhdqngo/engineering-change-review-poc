@@ -1,4 +1,11 @@
-const state = { cases: [], topK: 0, result: null, resultMetadata: null };
+const state = {
+  cases: [],
+  topK: 0,
+  result: null,
+  resultMetadata: null,
+  requestSequence: 0,
+  resultController: null,
+};
 const $ = (selector) => document.querySelector(selector);
 
 function humanStatus(value) {
@@ -84,24 +91,36 @@ function renderResult(sourceLabel) {
 }
 
 async function runCase() {
+  const runButton = $("#run-button");
+  const restoreReloadFocus = document.activeElement === runButton;
+  const requestSequence = ++state.requestSequence;
+  state.resultController?.abort();
+  const controller = new AbortController();
+  state.resultController = controller;
   $("#error").hidden = true;
-  $("#run-button").disabled = true;
+  runButton.disabled = true;
   try {
     const source = $("#source-select").value;
     const response = await fetch(
       `/api/cases/${encodeURIComponent($("#case-select").value)}/result?source=${source}`,
-      { cache: "no-store" },
+      { cache: "no-store", signal: controller.signal },
     );
     if (!response.ok) throw new Error((await response.json()).detail || response.statusText);
     const payload = await response.json();
+    if (requestSequence !== state.requestSequence) return;
     state.result = payload.result;
     state.resultMetadata = payload.result_metadata || null;
     renderResult(payload.result_source);
   } catch (error) {
+    if (error.name === "AbortError" || requestSequence !== state.requestSequence) return;
     $("#error").textContent = `Result load failed: ${error.message}`;
     $("#error").hidden = false;
   } finally {
-    $("#run-button").disabled = false;
+    if (requestSequence === state.requestSequence) {
+      state.resultController = null;
+      runButton.disabled = false;
+      if (restoreReloadFocus) runButton.focus();
+    }
   }
 }
 

@@ -49,11 +49,11 @@ The command validates frozen hashes first and writes per-role raw outputs, candi
 - Selection rationale: `docs/data-selection.md`
 - Deployment preparation: `deploy/README.md`
 
-## Verifiable v3 Cloud batch
+## Verifiable v4 Cloud batch
 
-V3 preserves the accepted v2 result while closing its last loading-copy finding. It reuses the frozen cases and v2 role prompts, and records an explicit v3 manifest in both run provenance and the published pointer. The completed freeze is `ecr-poc-v3-freeze` at `3984e77961b6edeacb2286935f65c1dd13c80a3e`.
+V4 preserves the immutable v3 experiment while correcting its independent UI audit findings. It reuses the same frozen cases and v2 role prompts, and records an explicit v4 manifest in run provenance and the published pointer.
 
-After local validation, the implementation commit and `ecr-poc-v3-freeze` tag must identify the same remote commit. Each external phase retains its explicit approval switch:
+After local validation, the implementation commit and `ecr-poc-v4-freeze` tag must identify the same remote commit. Each external phase retains its explicit approval switch:
 
 ```powershell
 .\scripts\provision-gcp.ps1 -ProjectId iceu-687 -ApproveBillableResources
@@ -63,4 +63,4 @@ After local validation, the implementation commit and `ecr-poc-v3-freeze` tag mu
 .\scripts\verify-cloud-run.ps1 -ProjectId iceu-687
 ```
 
-The browser never triggers a billable model run. It displays deterministic fixtures or the explicitly published GCS result. See `docs/experiment-protocol-v3.md` for the completed freeze/publication contract and `docs/results/experiment-report-v3.md` for the accepted evidence; the v2 report remains historical.
+The browser never triggers a billable model run. It displays deterministic fixtures or the explicitly published GCS result. See `docs/experiment-protocol-v4.md` for the active closure contract; the v3 report and failed UI audit remain immutable historical evidence.

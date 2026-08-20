@@ -1,4 +1,4 @@
-# GCP v3 Deployment
+# GCP v4 Deployment
 
 The private Cloud Run service displays an explicitly published GCS result. A separate private Cloud Run Job performs the billable 18-case ADK/Vertex evaluation. The browser cannot trigger that Job.
 
@@ -13,7 +13,7 @@ The default Compute service account is not used by either workload. Its existing
 
 ## Mandatory freeze precondition
 
-Provisioning, deployment, execution, and publication refuse to run unless the worktree is clean and `HEAD`, `origin/main`, and `ecr-poc-v3-freeze` are the same commit. The v2 tag remains immutable.
+Provisioning, deployment, execution, and publication refuse to run unless the worktree is clean and `HEAD`, `origin/main`, and `ecr-poc-v4-freeze` are the same commit. The v2 and v3 tags remain immutable.
 
 ## Approved phases
 
@@ -27,7 +27,7 @@ Each mutating or billable phase requires its own explicit switch:
 .\scripts\verify-cloud-run.ps1 -ProjectId $PROJECT_ID -Region asia-northeast3
 ```
 
-Provisioning uploads immutable v3 inputs and verifies the retained historical v1 result. Deployment builds once and assigns the exact same image digest to the web service and Job. Execution uses one task, no retries, and a 30-minute timeout, but never changes the published pointer. The separately approved publish command validates the v3 manifest, terminal checkpoint, and immutable result before changing `published/demo.json`.
+Provisioning uploads immutable v4 inputs and verifies the retained historical v1 result. Deployment builds once and assigns the exact same image digest to the web service and Job. Execution uses one task, no retries, and a 30-minute timeout, but never changes the published pointer. The separately approved publish command validates the v4 manifest, terminal checkpoint, and immutable result before changing `published/demo.json`.
 
 ## Required verification
 

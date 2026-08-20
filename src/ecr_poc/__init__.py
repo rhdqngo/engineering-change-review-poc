@@ -58,13 +58,13 @@ def _parser() -> argparse.ArgumentParser:
     cloud_evaluation.add_argument("--embedding", default="vertex")
     cloud_evaluation.add_argument(
         "--experiment-manifest",
-        default=os.environ.get("ECR_EXPERIMENT_MANIFEST", "ecr-poc-v3.json"),
+        default=os.environ.get("ECR_EXPERIMENT_MANIFEST", "ecr-poc-v4.json"),
     )
     upload_freeze = subcommands.add_parser(
         "upload-freeze", help="immutably upload frozen inputs to GCS"
     )
     upload_freeze.add_argument("--bucket", required=True)
-    upload_freeze.add_argument("--prefix", default="frozen/ecr-poc-v3")
+    upload_freeze.add_argument("--prefix", default="frozen/ecr-poc-v4")
     upload_history = subcommands.add_parser(
         "upload-historical", help="immutably upload the retained v1 result to GCS"
     )
@@ -144,7 +144,7 @@ def main() -> None:
         bucket = os.environ["ECR_GCS_BUCKET"]
         run_id = os.environ["ECR_RUN_ID"]
         source_commit = os.environ["ECR_SOURCE_COMMIT"]
-        input_prefix = os.environ.get("ECR_GCS_INPUT_PREFIX", "frozen/ecr-poc-v3")
+        input_prefix = os.environ.get("ECR_GCS_INPUT_PREFIX", "frozen/ecr-poc-v4")
         with tempfile.TemporaryDirectory(prefix="ecr-poc-input-") as temporary:
             root = Path(temporary)
             materialize_gcs_prefix(bucket, input_prefix, root)

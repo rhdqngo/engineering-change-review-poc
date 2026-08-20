@@ -79,6 +79,10 @@ def test_published_ui_preserves_provenance_and_accessible_selection() -> None:
     assert '<button id="run-button" type="button" disabled>Reload result</button>' in markup
     assert 'Loading review disposition…' in markup
     assert 'Run a case to inspect its review disposition.' not in markup
+    assert 'state.resultController?.abort()' in script
+    assert 'requestSequence !== state.requestSequence' in script
+    assert 'if (restoreReloadFocus) runButton.focus()' in script
+    assert '#run-button { min-width: 126px; white-space: nowrap; }' in styles
     assert 'id="evidence-desk"' in markup
     assert 'aria-live="polite"' in markup
     assert '.source-button { width: 100%; padding: 4px 0; min-height: 38px;' in styles

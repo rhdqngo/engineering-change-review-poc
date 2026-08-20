@@ -30,6 +30,7 @@ select, button { min-height: 38px; border: 1px solid #88a59b; border-radius: 2px
 button { cursor: pointer; color: white; background: transparent; font-weight: 650; }
 button:hover, button:focus-visible { background: #266554; outline: 2px solid var(--amber); outline-offset: 2px; }
 button:disabled { cursor: wait; opacity: .65; }
+#run-button { min-width: 126px; white-space: nowrap; }
 .change-strip { display: flex; justify-content: space-between; gap: 24px; padding: 22px 32px; border-bottom: 1px solid var(--line); }
 .change-strip h2 { margin-bottom: 5px; font-size: 23px; }
 .change-strip p:last-child { margin-bottom: 0; color: var(--muted); }

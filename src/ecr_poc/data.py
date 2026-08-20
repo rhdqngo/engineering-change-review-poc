@@ -13,8 +13,12 @@ class DataIntegrityError(RuntimeError):
     pass
 
 
-DEFAULT_EXPERIMENT_MANIFEST = "ecr-poc-v3.json"
-SUPPORTED_EXPERIMENT_MANIFESTS = ("ecr-poc-v2.json", "ecr-poc-v3.json")
+DEFAULT_EXPERIMENT_MANIFEST = "ecr-poc-v4.json"
+SUPPORTED_EXPERIMENT_MANIFESTS = (
+    "ecr-poc-v2.json",
+    "ecr-poc-v3.json",
+    "ecr-poc-v4.json",
+)
 
 
 def repository_root() -> Path:

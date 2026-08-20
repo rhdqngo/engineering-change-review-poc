@@ -56,7 +56,8 @@ V1 remains historical and hash-consistent but is not claimed as externally timed
 ## Related artifacts
 
 - Plan: `docs/plans/LLM 기반 우주 Engineering Change Review.md`
-- Protocol: `docs/experiment-protocol-v3.md`
+- Active protocol: `docs/experiment-protocol-v4.md`
+- V3 protocol: `docs/experiment-protocol-v3.md`
 - Report: `docs/results/experiment-report-v3.md`
 - Raw result: `results/runs/vertex-adk-v3.json`
 - Result manifest: `results/runs/vertex-adk-v3.manifest.json`
@@ -69,7 +70,9 @@ V1 remains historical and hash-consistent but is not claimed as externally timed
 
 The v3 experiment is complete and immutable, but its UI is not an approval candidate. A separately versioned v4 freeze will retain the exact cases, artifacts, retrieval, model, temperature, and prompt hashes while adding only request sequencing/cancellation, one-line narrow control geometry, and reload focus restoration. V3's tag and GCS objects will not move.
 
-Next checkpoint: commit and push this v3 evidence record, then implement, validate, freeze, deploy, execute, publish, and independently audit v4.
+The v3 evidence record is committed and pushed at `ac06e8975c098a06f5d46954b9a18f97b0aae90d`. V4 implementation validation passes 34 tests, Ruff, mypy, data validation, build, five-script parsing, keyboard Reload focus restoration, latest-source consistency under rapid switching, and one-line 126 × 38 px Reload geometry without body overflow.
+
+Next checkpoint: commit and push the v4 implementation, tag that exact commit as `ecr-poc-v4-freeze`, then deploy, execute, publish, and independently audit it.
 
 ## Update rules
 

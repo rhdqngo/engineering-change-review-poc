@@ -78,11 +78,11 @@ if ($caseCatalog.top_k -ne 6 -or $caseCatalog.cases.Count -ne 18) {
 }
 $evaluation = Invoke-RestMethod -Uri "$serviceUrl/api/evaluation" -Headers $headers
 if (
-    $evaluation.experiment_id -ne "ecr-poc-preregistered-v3" -or
+    $evaluation.experiment_id -ne "ecr-poc-preregistered-v4" -or
     $evaluation.cases.Count -ne 18 -or
     $evaluation.run_id -ne $health.published_run_id
 ) {
-    throw "Published Cloud evaluation is not the complete v3 run."
+    throw "Published Cloud evaluation is not the complete v4 run."
 }
 
 $env:UV_CACHE_DIR = ".cache\uv"
