@@ -1,0 +1,14 @@
+{
+  "status": "failed-before-first-model-result",
+  "experiment_id": "ecr-poc-preregistered-v1",
+  "attempt": 1,
+  "date": "2026-08-20",
+  "provider": "vertex-adk",
+  "model": "gemini-3.5-flash",
+  "embedding_model": "gemini-embedding-001",
+  "completed_case_ids": [],
+  "failed_case_id": "DIR-01",
+  "stage": "ADK runner validation before model generation",
+  "error": "ValueError: LlmAgent as root agent must have mode='chat' or 'task', but got mode='single_turn'.",
+  "interpretation": "No LLM case result was observed. Frozen cases and expected targets were not changed. Vertex document/query embeddings may have been populated in the local cache."
+}

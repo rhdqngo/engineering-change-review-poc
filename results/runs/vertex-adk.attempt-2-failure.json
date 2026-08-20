@@ -1,0 +1,15 @@
+{
+  "status": "failed",
+  "experiment_id": "ecr-poc-preregistered-v1",
+  "run_id": "08a1fd3c-5e06-475c-9763-67beb8fdca4a",
+  "attempt": 2,
+  "provider": "vertex-adk",
+  "model": "gemini-3.5-flash",
+  "embedding_model": "gemini-embedding-001",
+  "started_at": "2026-08-20T01:04:28.906947+00:00",
+  "failed_at": "2026-08-20T01:04:35.590228+00:00",
+  "completed_case_ids": [],
+  "failed_case_id": "DIR-01",
+  "error": "RuntimeError: ADK role change_analyst returned no text output",
+  "interpretation": "The task-mode model invocation completed, but the adapter inspected only text parts instead of the ADK terminal output field. No case result reached the experiment artifact; frozen cases and targets were unchanged."
+}
