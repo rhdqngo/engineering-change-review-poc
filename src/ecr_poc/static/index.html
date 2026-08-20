@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Engineering Change Review PoC</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <div class="environment" id="environment">LOCAL DEMO · LOADING</div>
+    <header>
+      <div>
+        <p class="eyebrow">NASA cFS sample_app · frozen experiment</p>
+        <h1>Engineering Change Review Docket</h1>
+      </div>
+      <div class="case-nav">
+        <label for="source-select">Result source</label>
+        <select id="source-select" aria-label="Result source">
+          <option value="fixture" selected>Deterministic fixture</option>
+          <option value="latest">Frozen Vertex evaluation</option>
+        </select>
+        <label for="case-select">Case</label>
+        <select id="case-select" aria-label="Frozen evaluation case"></select>
+        <button id="run-button" type="button">Run case</button>
+      </div>
+    </header>
+    <section class="change-strip" aria-labelledby="change-title">
+      <div>
+        <p id="case-meta" class="eyebrow"></p>
+        <h2 id="change-title">Loading frozen case…</h2>
+        <p id="scenario"></p>
+      </div>
+      <dl class="summary">
+        <div><dt>Top-K</dt><dd id="top-k">—</dd></div>
+        <div><dt>Verified</dt><dd id="verified-count">—</dd></div>
+        <div><dt>Blocked</dt><dd id="blocked-count">—</dd></div>
+      </dl>
+    </section>
+    <div id="error" class="error" role="alert" hidden></div>
+    <main>
+      <section class="candidate-pane" aria-labelledby="candidate-title">
+        <div class="pane-heading">
+          <h2 id="candidate-title">Fixed candidate docket</h2>
+          <code id="fingerprint">candidate seal —</code>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Rank</th><th>Source</th><th>Hybrid</th><th>Baseline</th><th>Proposed</th></tr></thead>
+            <tbody id="candidate-rows"></tbody>
+          </table>
+        </div>
+      </section>
+      <aside aria-labelledby="evidence-title">
+        <p class="eyebrow">Evidence desk</p>
+        <h2 id="evidence-title">Select a candidate</h2>
+        <p id="reason" class="reason">Run a case to inspect its review disposition.</p>
+        <pre id="evidence">No evidence selected.</pre>
+        <dl class="checks">
+          <div><dt>Source in fixed Top-K</dt><dd id="check-source">—</dd></div>
+          <div><dt>Exact source span</dt><dd id="check-span">—</dd></div>
+          <div><dt>Independent verifier</dt><dd id="check-verifier">—</dd></div>
+        </dl>
+        <section class="blocked">
+          <h3>Fail-closed record</h3>
+          <p id="blocked-detail">No blocked output for this candidate.</p>
+        </section>
+      </aside>
+    </main>
+    <footer>
+      <span id="provenance-note">Fixture mode is deterministic UI/test data, never experiment evidence.</span>
+      <a href="/api/evaluation">Raw frozen evaluation JSON</a>
+    </footer>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
