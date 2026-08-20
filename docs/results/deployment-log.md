@@ -5,6 +5,22 @@ region: `asia-northeast3`
 service: `ecr-poc`  
 updated: 2026-08-20
 
+## V3 completion status
+
+V3 is a complete, published experiment whose independent UI audit failed final acceptance. The implementation freeze is `ecr-poc-v3-freeze` at `3984e77961b6edeacb2286935f65c1dd13c80a3e`; `ecr-poc-v2-freeze` and all v1/v2 objects remain unchanged. Revision `ecr-poc-00006-6jz` and Job `ecr-poc-evaluate` use the same immutable image digest `sha256:6d0ccf8179655f4211344d7d57403273220e252ac7388b0e7e08787376363c79`.
+
+- Execution: `ecr-poc-evaluate-fq5s4`
+- Run: `cloud-v3-20260820T043842Z-6e260831`
+- Result: `runs/cloud-v3-20260820T043842Z-6e260831/evaluation.json`
+- Generation: `1787201087845537`
+- SHA-256: `34ba69003c632d30a93aa47d3e21d4eb166634b1dcd91b44badc1b9de5ef23a1`
+- Published pointer updated: `2026-08-20T04:45:11.889647Z`
+- Result: 18/18 cases, zero role errors, metrics and provenance validation passed
+
+Provisioning uploaded 25 immutable objects under `frozen/ecr-poc-v3` into the existing hardened bucket. The single billable task ran sequentially with parallelism 1, retries 0, 1 CPU, 1 GiB, and a 1,800-second timeout. Publication occurred only after the checkpoint sealed the evaluation generation/SHA and all source/tag/manifest/execution/image checks passed.
+
+The final Cloud verification confirmed dedicated `ecr-poc-web` and `ecr-poc-job` identities, exact bucket/project roles, no Editor/Owner/Storage Admin on either identity, private unauthenticated 403, one structured `job_started`, 18 `case_completed`, and one `evaluation_completed` for the v3 run, with no prompt/raw-evidence/credential fields. Browser review confirmed the revised cold-start copy but found three major UI defects: stale overlapping responses, Reload wrapping at 390 px, and lost keyboard focus after Reload. V3 remains immutable evidence and is not rewritten to conceal those findings.
+
 ## V2 completion status
 
 V2 is complete and published. The final corrective freeze is `ecr-poc-v2-freeze` at `10c59bfba3e1b37afde026548f4c1f51ec6526ed`. Revision `ecr-poc-00005-485` and Job `ecr-poc-evaluate` use the same immutable image digest `sha256:65d65dc7924ca535c4d8c659d13e1297155c83dda993755c83399350a7b164c6`.

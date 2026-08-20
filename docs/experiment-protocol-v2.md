@@ -1,8 +1,10 @@
 # Verifiable Cloud Experiment Protocol v2
 
-status: implementation-complete-awaiting-remote-freeze
+status: complete-and-published-historical
 experiment: `ecr-poc-preregistered-v2`
 freeze tag: `ecr-poc-v2-freeze`
+final freeze commit: `10c59bfba3e1b37afde026548f4c1f51ec6526ed`
+final accepted run: `cloud-v2-20260820T035505Z-56ad91df`
 
 ## Why v2 exists
 
