@@ -13,6 +13,7 @@ primary action: inspect a frozen case's verified review selection
 - rejected unsupported output
 - clean/restore case with zero verified findings
 - API failure with a visible recovery message
+- published GCS result unavailable or invalid with a visible retry path and no local fallback in Cloud
 
 ## Inputs
 
@@ -22,3 +23,10 @@ primary action: inspect a frozen case's verified review selection
 ## Non-goals
 
 No change editing, source mutation, reviewer approval, prompt display, or live Vertex call from the browser.
+
+## V2 repair scope
+
+- Preserve the Docket layout, candidate comparison, evidence gate, and fixture behavior.
+- Rename the saved-result control to `Published Cloud evaluation`.
+- Show published run ID and source-commit provenance in the existing environment/footer roles.
+- Do not add a Job execution control or persistent explanatory paragraph.

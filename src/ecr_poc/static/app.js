@@ -1,4 +1,4 @@
-const state = { cases: [], topK: 0, result: null };
+const state = { cases: [], topK: 0, result: null, resultMetadata: null };
 const $ = (selector) => document.querySelector(selector);
 
 function humanStatus(value) {
@@ -31,12 +31,18 @@ function selectCandidate(sourceId) {
 function renderResult(sourceLabel) {
   const result = state.result;
   const isFixture = result.provider === "fixture-not-llm";
+  const publishedRunId = state.resultMetadata?.published_run_id || result.run_id;
+  const shortRun = publishedRunId ? publishedRunId.slice(0, 12) : "unknown run";
+  const sourceCommit = state.resultMetadata?.source_commit || result.provenance?.source_commit;
+  const shortCommit = sourceCommit ? sourceCommit.slice(0, 8) : null;
   $("#environment").textContent = sourceLabel === "saved-evaluation" && !isFixture
     ? `SAVED EVALUATION · ${result.provider} · ${result.model}`
+    : sourceLabel === "published-evaluation" && !isFixture
+      ? `PUBLISHED CLOUD EVALUATION · ${result.provider} · ${result.model} · ${shortRun}${shortCommit ? ` · ${shortCommit}` : ""}`
     : "DETERMINISTIC FIXTURE · NOT LLM EXPERIMENT EVIDENCE";
   $("#provenance-note").textContent = isFixture
     ? "Fixture mode is deterministic UI/test data, never experiment evidence."
-    : `Saved experiment result · ${result.provider} · ${result.model}`;
+    : `Published experiment · ${result.experiment_id || "legacy freeze"} · run ${shortRun}${shortCommit ? ` · commit ${shortCommit}` : ""}`;
   $("#fingerprint").textContent = `candidate seal ${result.candidate_fingerprint.slice(0, 12)}…`;
   $("#top-k").textContent = result.candidates.length;
   const verified = result.final_reviews.filter((item) => item.status === "VERIFIED_REVIEW").length;
@@ -71,10 +77,14 @@ async function runCase() {
   $("#run-button").disabled = true;
   try {
     const source = $("#source-select").value;
-    const response = await fetch(`/api/cases/${encodeURIComponent($("#case-select").value)}/result?source=${source}`);
+    const response = await fetch(
+      `/api/cases/${encodeURIComponent($("#case-select").value)}/result?source=${source}`,
+      { cache: "no-store" },
+    );
     if (!response.ok) throw new Error((await response.json()).detail || response.statusText);
     const payload = await response.json();
     state.result = payload.result;
+    state.resultMetadata = payload.result_metadata || null;
     renderResult(payload.result_source);
   } catch (error) {
     $("#error").textContent = `Case run failed: ${error.message}`;
@@ -93,7 +103,7 @@ function renderCase() {
 }
 
 async function init() {
-  const response = await fetch("/api/cases");
+  const response = await fetch("/api/cases", { cache: "no-store" });
   const payload = await response.json();
   state.cases = payload.cases;
   state.topK = payload.top_k;

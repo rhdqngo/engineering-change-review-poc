@@ -1,7 +1,7 @@
 # Current Project State
 
-status: complete  
-phase: completed-experiment-and-deployment  
+status: in-progress
+phase: verifiable-v2-cloud-completion
 updated: 2026-08-20
 
 ## Objective
@@ -13,6 +13,7 @@ updated: 2026-08-20
 - Scope Freeze from `docs/plans/LLM 기반 우주 Engineering Change Review.md`.
 - One NASA cFS subset, Experimental Clean Baseline, and 18 pre-registered cases.
 - Baseline versus three-role Google ADK/Vertex-compatible proposed pipeline, fail-closed evidence verification, evaluation artifacts, Demo UI, and GCP deployment configuration.
+- Verifiable v2 remote freeze, GCS-authoritative batch inputs/results, least-privilege Cloud Run service/Job identities, and structured execution logging.
 
 ## Milestones
 
@@ -25,13 +26,16 @@ updated: 2026-08-20
 | Representative vertical slice | complete | FastAPI Docket covers all 18 cases; actual browser verified clean, restore, direct, semantic, cross-artifact, and unsupported-rejection states at desktop and narrow viewports. |
 | Validation | complete | Data, lint, type, 13 tests, package build, health, fixture and actual raw artifacts, exact-span audit, and rendered browser evidence pass. |
 | GCP deployment and verification | complete | After exact approval, a dedicated `roles/run.builder` identity built private revision `ecr-poc-00002-v9g`; authenticated health/catalog, actual browser flows, fail-closed rejection, unauthenticated 403, and Cloud Logging passed. |
+| V2 local implementation | complete | Versioned role prompt/experiment hashes, GCS-authoritative prompt injection, run provenance, role timeouts, reviewer reconciliation, checkpoint-sealed publication gate, dedicated-identity scripts, published-result API/UI, 27 tests, lint, type, data validation, script parsing, and package build pass. |
+| V2 remote freeze | pending approval | The implementation must be committed, pushed, and tagged `ecr-poc-v2-freeze` before any v2 model result exists. |
+| V2 GCP batch and publication | pending approval | Provision bucket/IAM, deploy the same image to the service and Job, execute the approved billable 18-case run, validate, publish, and capture cloud/browser evidence. |
 
 ## Completed major results
 
 - Repository is operational with a Python 3.13 `uv` package application and verified install, run, and build commands.
 - Stack decision: one Python service to align with ADK's Python `root_agent`/FastAPI Cloud Run path; separate frontend, managed vector DB, and Agent Engine rejected as unnecessary scope.
 - Data decision: use the official public NASA cFS `sample_app` release tag v7.0.1 because it contains interface, configuration, implementation, tests, and change history in one small Apache-2.0 artifact family.
-- Experiment freeze: Direct 4, Semantic 4, Cross-Artifact 4, Clean 3, and Benign 3 cases and expected targets are content-hashed in `data/cases/freeze.json` with `results_observed_before_freeze=false`.
+- Experiment freeze: Direct 4, Semantic 4, Cross-Artifact 4, Clean 3, and Benign 3 cases and expected targets are content-hashed in `data/cases/freeze.json`. V1 is retained as hash-consistent but is not claimed as externally timed preregistration; v2 adds the required remote pre-run freeze.
 - UI direction: a fixed candidate docket was selected because it exposes the controlled Top-K and the verified selection side by side without procedural UI overhead.
 - Fail-closed UI finding: browser inspection caught that rejected fixture evidence was initially visible in the evidence desk; production UI was corrected so only `VERIFIED_REVIEW` evidence is exposed, then revalidated.
 - Actual result: Retrieval Coverage 10/12, conditional LLM Review Success 9/10, control False Alarm 4/6, 29 verified findings from 108 fixed candidates, and actual unsupported blocked count 0.
@@ -47,7 +51,7 @@ updated: 2026-08-20
 | Build / check | passed | `uv build` produced source and wheel distributions. |
 | Frozen data | passed | `uv run ecr-poc validate-data` validated 18 pinned source-file hashes, three freeze hashes, 32 spans, 18 cases, and 12 exact expected-evidence spans. |
 | Offline retrieval diagnostic | passed | Deterministic fixture retriever covered all frozen targets in all 12 mutation cases; this is not the actual Vertex result. |
-| Tests | passed | `uv run pytest -q tests -p no:cacheprovider` -> 13 passed; agent count, checkpoint, exact-span, duplicate/missing verifier, provider failure, and API paths covered. |
+| Tests | passed | `uv run pytest -q tests -p no:cacheprovider` -> 27 passed; v2 role prompt drift, provenance, role timeout, reviewer/verifier cardinality, checkpoint failure, log allowlisting, publication integrity, GCS fail-closed API, and prior paths covered. |
 | Static/type | passed | `uv run ruff check .` and `uv run mypy src`. |
 | Package build | passed | `uv build` created sdist and wheel; cache warning checked and cache content was absent from the sdist. |
 | Health / API | passed | `/health` returned valid freeze; TestClient covered normal and unknown-case paths. |
@@ -56,18 +60,21 @@ updated: 2026-08-20
 | Actual Vertex experiment | passed | 18/18 cases completed with no role errors; raw SHA-256 `7832aad0728660c2283cfa41aedddf06a34e3b50e7fd6d514e0d0854b69ee28e`. |
 | Actual saved-result UI | passed | Browser verified provider/model provenance and representative actual Direct, Semantic, Cross-Artifact, Clean, and restore results. |
 | Container runtime | passed in Cloud Build | The repository Dockerfile built successfully and revision `ecr-poc-00002-v9g` passed startup and request checks. Local Docker Desktop's Linux engine remains unavailable but is no longer a validation blocker. |
-| Deployment script safety | passed | Both PowerShell scripts parse successfully; deploy script refuses to enable/build/deploy unless `-ApproveBillableResources` is supplied. |
+| Deployment script safety | passed locally | All five PowerShell scripts parse; provisioning/deploy, billable execution, and publish-pointer mutation have distinct approval flags and preflight the remote freeze. |
 | Cloud Run health / API | passed | Authenticated `/health` returned valid freeze; catalog returned Top-K 6 and 18 cases; `/api/evaluation` returned `vertex-adk`. |
 | Cloud Run browser | passed | Actual DIR-02, XART-03, CLN-01, CLN-02 and fixture unsupported-rejection flows passed; capture `docs/ui/evidence/review-docket-cloud-run.png`. |
 | Cloud Run access / logging | passed | Direct unauthenticated health returned 403; Cloud Logging recorded startup and representative 200/403 request paths. |
 
 ## Blockers and decisions needed
 
-- None for the requested PoC. Local Docker Desktop is not running, but the same Dockerfile passed Cloud Build and deployed-runtime validation.
+- Git commit/push/tag approval is required before establishing the remote v2 freeze.
+- GCP bucket/IAM creation and service/Job deployment require a separate external-change approval.
+- The billable 18-case Vertex Job requires its own execution approval. No v2 model result exists yet.
+- The validated run requires a separate publish-pointer approval after execution succeeds.
 
 ## Next checkpoint
 
-- Optional human review of the report and Cloud resource retention; no further work is required by the frozen PoC scope.
+- Prepare the verified local changes as the v2 freeze commit, then request explicit commit/push/tag approval before any GCP mutation or v2 run.
 
 ## Related artifacts
 
@@ -76,6 +83,7 @@ updated: 2026-08-20
 - UI Foundation: `docs/ui/foundation.md` (provisional)
 - Reviews: none yet
 - Experiment report: `docs/results/experiment-report.md`
+- V2 protocol/report: `docs/experiment-protocol-v2.md`, `docs/results/experiment-report-v2.md`
 
 ## Update rules
 

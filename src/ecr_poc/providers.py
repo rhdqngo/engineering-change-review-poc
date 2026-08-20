@@ -26,6 +26,7 @@ from .models import (
     VerificationBatch,
     VerificationItem,
 )
+from .prompts import PromptBundle
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -57,8 +58,11 @@ class ReviewProvider(Protocol):
 class AdkVertexProvider:
     name = "vertex-adk"
 
-    def __init__(self, model_name: str = MODEL) -> None:
+    def __init__(
+        self, model_name: str = MODEL, prompt_bundle: PromptBundle | None = None
+    ) -> None:
         self.model_name = model_name
+        self.prompt_bundle = prompt_bundle
 
     async def _run(self, agent: LlmAgent, prompt: str, schema: type[T]) -> tuple[T, str]:
         runner = InMemoryRunner(agent=agent, app_name=f"ecr_poc_{agent.name}")
@@ -88,7 +92,9 @@ class AdkVertexProvider:
 
     async def analyze(self, case: CaseDefinition) -> tuple[StructuredChange, RoleTrace]:
         prompt = json.dumps({"change_text": case.change_text}, ensure_ascii=False)
-        parsed, raw = await self._run(make_change_analyst(), prompt, StructuredChange)
+        parsed, raw = await self._run(
+            make_change_analyst(self.prompt_bundle), prompt, StructuredChange
+        )
         return parsed, RoleTrace(
             role="change_analyst",
             provider=self.name,
@@ -108,7 +114,7 @@ class AdkVertexProvider:
             "fixed_candidates": [candidate.model_dump(mode="json") for candidate in candidates],
         }
         parsed, raw = await self._run(
-            make_engineering_reviewer(),
+            make_engineering_reviewer(self.prompt_bundle),
             json.dumps(payload, ensure_ascii=False),
             ReviewBatch,
         )
@@ -139,7 +145,7 @@ class AdkVertexProvider:
             ],
         }
         parsed, raw = await self._run(
-            make_evidence_verifier(),
+            make_evidence_verifier(self.prompt_bundle),
             json.dumps(payload, ensure_ascii=False),
             VerificationBatch,
         )

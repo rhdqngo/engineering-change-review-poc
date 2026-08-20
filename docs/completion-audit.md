@@ -1,19 +1,20 @@
 # Completion Audit
 
 updated: 2026-08-20
+overall: local-v2-implementation-complete; remote-freeze-and-cloud-execution-pending
 
 | # | Requirement | Status | Authoritative evidence |
 | --- | --- | --- | --- |
-| 1 | Operational install/run/test project | proven | `AGENTS.md`, `README.md`; frozen sync, 13 tests, Ruff, mypy, build, health executed. |
-| 2 | One sourced NASA subset and clean baseline | proven | `data/nasa/provenance.json`, `docs/data-selection.md`; source hashes validated. |
-| 3 | Pre-result 4/4/4/3/3 cases and targets | proven | `data/cases/cases.json`, `freeze.json`, `docs/experiment-protocol.md`; hashes predate model result. |
-| 4 | Same analyst output and same Top-K arms | proven | One structured change drives one candidate object per case; all 18 raw arm ID lists and seals match. |
-| 5 | Exactly three roles plus shared retrieval tool | proven | `tests/test_agents.py`; three `LlmAgent` constructors, no coordinator/workflow agent; ADK `FunctionTool` wraps retrieval. |
-| 6 | Exact span, source ID, reason, independent verifier, fail-closed | proven | 29 actual findings passed exact candidate substring and verifier checks; rejected final evidence is null; failure-path tests pass. |
-| 7 | Type-level metrics and raw artifact | proven | `results/runs/vertex-adk.json`, checkpoint, fixture artifact, `metrics.py`, documented command. |
-| 8 | Demo UI and browser evidence | proven | desktop/narrow/actual/local and deployed Cloud Run captures plus browser interaction records in `docs/ui/render-matrix.md`. |
-| 9 | Build/test/normal/error/rejection and actual report | proven | 13 tests, package build, health, browser, `docs/results/experiment-report.md`. |
-| 10 | GCP config and approved deployment verification | proven | Private revision `ecr-poc-00002-v9g` serves 100%; authenticated health/catalog, actual browser flow, fail-closed rejection, unauthenticated 403, and Cloud Logging paths passed. See `docs/results/deployment-log.md`. |
-| 11 | Respect non-goals; no automatic commit/push/deploy | proven | Git remains uncommitted/unpushed; the only external deployment and minimal IAM changes were performed after exact user approval; no scope expansion occurred. |
+| 1 | Operational install/run/test project | proven | 27 tests, Ruff, mypy, data validation, five PowerShell parses, and package build pass. |
+| 2 | One sourced NASA subset and clean baseline | proven | Pinned sources, provenance, curated spans, and source hashes remain unchanged. |
+| 3 | 4/4/4/3/3 frozen cases and targets | v1 timing unproven; v2 prepared | V1 inputs and result hashes agree, but the first Git input commit postdates the v1 run. V2 manifest and prompt hashes are ready for a remote pre-run freeze. |
+| 4 | Same analyst output and same Top-K arms | proven in code and v1; v2 pending run | One retrieval object is shared by both arms; publication independently recomputes fingerprints and arm identity. |
+| 5 | Exactly three roles plus shared non-agent retrieval | proven | Three ADK `LlmAgent` roles remain. The unused ADK `FunctionTool` wrapper was removed; `HybridRetriever` is the deterministic shared non-agent tool. |
+| 6 | Exact span, source ID, reason, verifier, fail-closed | proven locally | Existing gates remain; v2 adds role timeouts and explicit missing reviewer-output blocking. Publication rejects role errors or invalid verified evidence. |
+| 7 | Type-level metrics, raw artifact, and provenance | v1 proven; v2 prepared | V2 run schema records source commit, freeze tag, prompt/input hashes, ADK version, execution, image, and artifact store. |
+| 8 | Demo UI and browser evidence | v1 proven; v2 default-viewport repair proven | UI distinguishes deterministic fixture from published Cloud evaluation, uses pointer run identity, keeps rejected evidence hidden, and adds no billable control. Fresh narrow v2 rendering remains unverified because the in-app override was ignored. |
+| 9 | Build/test/error/rejection paths | proven locally | 27 tests include role prompt drift, timeouts, reviewer/verifier cardinality, checkpoint failure, structured-log allowlisting, publication integrity, and GCS-unavailable 503 behavior. |
+| 10 | Cloud Run + Vertex + GCS + Logging + minimum IAM | implementation prepared; external execution pending | Approval-gated scripts create the hardened bucket, dedicated web/job identities, same-image service/Job, structured logs, batch execution, publication, and verification. |
+| 11 | Git and external-change discipline | proven to current baseline; v2 approval pending | `main` is tracked and pushed. New scripts require a clean tree and identical `HEAD`, `origin/main`, and freeze-tag commits; no v2 push, tag, resource mutation, deployment, or model run has occurred yet. |
 
-All eleven completion requirements have direct repository, raw-result, test, browser, or deployed-runtime evidence.
+The project must not be marked fully complete until the v2 freeze tag is visible remotely, the approved Cloud Run Job finishes all 18 cases, the GCS result is validated and published, IAM/log/browser checks pass, and final evidence is committed and pushed with approval.

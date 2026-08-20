@@ -1,7 +1,16 @@
 import asyncio
 
+import pytest
+
 from ecr_poc.data import load_artifacts, load_cases
-from ecr_poc.models import FinalStatus, VerificationBatch, VerificationItem
+from ecr_poc.models import (
+    Decision,
+    FinalStatus,
+    ReviewBatch,
+    ReviewItem,
+    VerificationBatch,
+    VerificationItem,
+)
 from ecr_poc.pipeline import run_case
 from ecr_poc.providers import FixtureProvider
 from ecr_poc.retrieval import DeterministicHashEmbedder, HybridRetriever
@@ -88,6 +97,42 @@ class FailingReviewProvider(FixtureProvider):
         raise RuntimeError("simulated provider outage")
 
 
+class IncompleteReviewProvider(FixtureProvider):
+    async def review(self, case, change, candidates):
+        batch, trace = await super().review(case, change, candidates)
+        incomplete = ReviewBatch(reviews=batch.reviews[:1])
+        return incomplete, trace
+
+
+class DuplicateAndExternalReviewProvider(FixtureProvider):
+    async def review(self, case, change, candidates):
+        batch, trace = await super().review(case, change, candidates)
+        malformed = ReviewBatch(
+            reviews=[
+                *batch.reviews,
+                batch.reviews[0],
+                ReviewItem(
+                    source_id="OUTSIDE_FIXED_TOP_K",
+                    decision=Decision.NO_REVIEW,
+                    short_reason="This source was not retrieved.",
+                ),
+            ]
+        )
+        return malformed, trace
+
+
+class MissingVerifierProvider(FixtureProvider):
+    async def verify(self, case, change, proposals, candidates):
+        _, trace = await super().verify(case, change, proposals, candidates)
+        return VerificationBatch(verifications=[]), trace
+
+
+class SlowAnalystProvider(FixtureProvider):
+    async def analyze(self, case):
+        await asyncio.sleep(0.05)
+        return await super().analyze(case)
+
+
 def test_independent_verifier_rejection_is_fail_closed() -> None:
     case, top_k, retriever = setup_case("DIR-01")
     result = asyncio.run(run_case(case, retriever, RejectingVerifierProvider(), top_k))
@@ -119,3 +164,56 @@ def test_engineering_review_provider_failure_exposes_no_advice() -> None:
     )
     trace = next(item for item in result.role_traces if item.role == "engineering_review")
     assert trace.error == "RuntimeError: simulated provider outage"
+
+
+def test_missing_reviewer_decisions_are_explicitly_blocked() -> None:
+    case, top_k, retriever = setup_case("DIR-01")
+    result = asyncio.run(run_case(case, retriever, IncompleteReviewProvider(), top_k))
+    missing = [
+        item
+        for item in result.final_reviews
+        if item.blocked_stage == "schema_missing_source"
+    ]
+    assert len(missing) == top_k - 1
+    assert all(item.evidence is None for item in missing)
+
+
+def test_duplicate_and_external_reviewer_decisions_are_fail_closed() -> None:
+    case, top_k, retriever = setup_case("DIR-01")
+    result = asyncio.run(
+        run_case(case, retriever, DuplicateAndExternalReviewProvider(), top_k)
+    )
+    blocked_stages = {item.blocked_stage for item in result.final_reviews}
+    assert "schema_duplicate_source" in blocked_stages
+    assert "source_not_in_fixed_top_k" in blocked_stages
+    assert all(
+        item.evidence is None
+        for item in result.final_reviews
+        if item.blocked_stage in {"schema_duplicate_source", "source_not_in_fixed_top_k"}
+    )
+
+
+def test_missing_verifier_verdict_is_fail_closed() -> None:
+    case, top_k, retriever = setup_case("DIR-01")
+    result = asyncio.run(run_case(case, retriever, MissingVerifierProvider(), top_k))
+    target = next(
+        item for item in result.final_reviews if item.source_id == "CONFIG_FUNCTION_CODES"
+    )
+    assert target.status is FinalStatus.REJECTED_UNSUPPORTED
+    assert target.blocked_stage == "independent_verifier"
+    assert target.verifier_reason == "Verifier returned no verdict"
+    assert target.evidence is None
+
+
+def test_change_analyst_timeout_fails_before_retrieval() -> None:
+    case, top_k, retriever = setup_case("DIR-01")
+    with pytest.raises(TimeoutError):
+        asyncio.run(
+            run_case(
+                case,
+                retriever,
+                SlowAnalystProvider(),
+                top_k,
+                role_timeout_seconds=0.001,
+            )
+        )

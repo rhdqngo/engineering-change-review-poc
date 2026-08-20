@@ -5,7 +5,7 @@ updated: 2026-08-20
 
 | Role | Invariant |
 | --- | --- |
-| Environment provenance | 7 px vertical padding, amber strip, 11 px uppercase monospace. |
+| Environment provenance | 7 px vertical padding, amber strip, 11 px uppercase monospace; published source, provider, model, short run ID, and optional short commit remain one explicit provenance sequence. |
 | Candidate row | 16 px vertical padding, single bottom rule, source ID plus one muted title line. |
 | Disposition | 11 px uppercase monospace; text label always present. |
 | Evidence | Exact span, 12 px monospace, dark surface, preserves wrapping and whitespace. |

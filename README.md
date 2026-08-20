@@ -1,6 +1,6 @@
 # Evidence-grounded Engineering Change Review PoC
 
-This repository contains a pre-registered experiment over a pinned NASA cFS `sample_app` v7.0.1 subset. It compares a baseline fixed Hybrid Retrieval Top-6 with a proposed three-role Google ADK review over the exact same candidates. Only exact source spans supported by an independent verifier can reach final review output.
+This repository contains a frozen experiment over a pinned NASA cFS `sample_app` v7.0.1 subset. It compares a baseline fixed Hybrid Retrieval Top-6 with a proposed three-role Google ADK review over the exact same candidates. Only exact source spans supported by an independent verifier can reach final review output. The retained v1 result is hash-consistent but is not claimed as externally timed preregistration; the v2 Cloud protocol establishes that evidence with a remote freeze tag before execution.
 
 ## Setup and commands
 
@@ -17,7 +17,7 @@ uv build
 uv run ecr-poc serve --host 127.0.0.1 --port 8080
 ```
 
-Open `http://127.0.0.1:8080`. The default Demo UI uses a deterministic fixture and labels it as non-LLM evidence. The `Frozen Vertex evaluation` source reads the pinned completed experiment artifact at `results/runs/vertex-adk.json`; a later fixture run cannot replace that evidence by updating `results/latest.json`.
+Open `http://127.0.0.1:8080`. The default Demo UI uses a deterministic fixture and labels it as non-LLM evidence. Local published-result mode reads the retained v1 artifact. A Cloud deployment sets `ECR_RESULT_STORE=gcs` and accepts only the generation- and SHA-verified object referenced by `published/demo.json`; it never silently falls back to the image-bundled v1 result.
 
 ## Reproducible evaluation
 
@@ -46,3 +46,19 @@ The command validates frozen hashes first and writes per-role raw outputs, candi
 - Freeze hashes: `data/cases/freeze.json`
 - Selection rationale: `docs/data-selection.md`
 - Deployment preparation: `deploy/README.md`
+
+## Verifiable v2 Cloud batch
+
+V2 adds a remote freeze tag, prompt hashes, source/image provenance, GCS input and result storage, a least-privilege Cloud Run Job, structured logs, and explicit publication.
+
+After local validation, the implementation commit and `ecr-poc-v2-freeze` tag must be pushed with approval. Each external phase then has its own approval switch:
+
+```powershell
+.\scripts\provision-gcp.ps1 -ProjectId iceu-687 -ApproveBillableResources
+.\scripts\deploy-cloud-run.ps1 -ProjectId iceu-687 -ApproveBillableResources
+.\scripts\run-cloud-evaluation.ps1 -ProjectId iceu-687 -ApproveBillableRun
+.\scripts\publish-cloud-evaluation.ps1 -ProjectId iceu-687 -RunId <validated-run-id> -ApprovePublish
+.\scripts\verify-cloud-run.ps1 -ProjectId iceu-687
+```
+
+The browser never triggers a billable model run. It displays deterministic fixtures or the explicitly published GCS result. See `docs/experiment-protocol-v2.md` for the freeze and publication contract.

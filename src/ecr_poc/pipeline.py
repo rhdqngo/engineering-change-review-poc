@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import os
+import time
 import uuid
 from collections import Counter
 from collections.abc import Sequence
@@ -19,6 +22,7 @@ from .models import (
     RoleTrace,
     VerificationBatch,
 )
+from .observability import log_event
 from .providers import ReviewProvider
 from .retrieval import HybridRetriever, candidate_fingerprint
 
@@ -38,11 +42,40 @@ async def run_case(
     retriever: HybridRetriever,
     provider: ReviewProvider,
     top_k: int,
+    *,
+    evaluation_run_id: str | None = None,
+    role_timeout_seconds: float | None = None,
 ) -> PipelineResult:
     started_at = _now()
+    run_id = evaluation_run_id or str(uuid.uuid4())
+    timeout = role_timeout_seconds or float(os.environ.get("ECR_ROLE_TIMEOUT_SECONDS", "120"))
     role_traces: list[RoleTrace] = []
-    structured_change, analyst_trace = await provider.analyze(case)
+    role_started = time.monotonic()
+    try:
+        structured_change, analyst_trace = await asyncio.wait_for(
+            provider.analyze(case), timeout=timeout
+        )
+    except Exception as error:
+        log_event(
+            "role_failed",
+            severity="ERROR",
+            run_id=run_id,
+            case_id=case.id,
+            role="change_analyst",
+            model=provider.model_name,
+            latency_ms=round((time.monotonic() - role_started) * 1000),
+            error_type=type(error).__name__,
+        )
+        raise
     role_traces.append(analyst_trace)
+    log_event(
+        "role_completed",
+        run_id=run_id,
+        case_id=case.id,
+        role="change_analyst",
+        model=provider.model_name,
+        latency_ms=round((time.monotonic() - role_started) * 1000),
+    )
 
     # This object is intentionally shared by both arms. A copied/re-ranked list
     # is not created for Proposed.
@@ -53,10 +86,19 @@ async def run_case(
         raise RuntimeError("Baseline and Proposed candidate fingerprints differ")
 
     try:
-        review_batch, review_trace = await provider.review(
-            case, structured_change, proposed_candidates
+        role_started = time.monotonic()
+        review_batch, review_trace = await asyncio.wait_for(
+            provider.review(case, structured_change, proposed_candidates), timeout=timeout
         )
         role_traces.append(review_trace)
+        log_event(
+            "role_completed",
+            run_id=run_id,
+            case_id=case.id,
+            role="engineering_review",
+            model=provider.model_name,
+            latency_ms=round((time.monotonic() - role_started) * 1000),
+        )
     except Exception as error:  # noqa: BLE001 - review failures must fail closed
         review_batch = ReviewBatch(
             reviews=[
@@ -77,6 +119,16 @@ async def run_case(
                 parsed=review_batch.model_dump(mode="json"),
                 error=f"{type(error).__name__}: {error}",
             )
+        )
+        log_event(
+            "role_failed",
+            severity="ERROR",
+            run_id=run_id,
+            case_id=case.id,
+            role="engineering_review",
+            model=provider.model_name,
+            latency_ms=round((time.monotonic() - role_started) * 1000),
+            error_type=type(error).__name__,
         )
     candidate_by_id = {candidate.source_id: candidate for candidate in candidates}
     seen: set[str] = set()
@@ -136,16 +188,39 @@ async def run_case(
                 )
             )
 
+    for candidate in candidates:
+        if candidate.source_id not in seen:
+            final_reviews.append(
+                FinalReview(
+                    source_id=candidate.source_id,
+                    status=FinalStatus.REJECTED_UNSUPPORTED,
+                    short_reason="Engineering Review returned no decision for this fixed candidate.",
+                    blocked_stage="schema_missing_source",
+                )
+            )
+
     verification = VerificationBatch(verifications=[])
     if valid_for_verifier:
         try:
-            verification, verifier_trace = await provider.verify(
-                case,
-                structured_change,
-                valid_for_verifier,
-                proposed_candidates,
+            role_started = time.monotonic()
+            verification, verifier_trace = await asyncio.wait_for(
+                provider.verify(
+                    case,
+                    structured_change,
+                    valid_for_verifier,
+                    proposed_candidates,
+                ),
+                timeout=timeout,
             )
             role_traces.append(verifier_trace)
+            log_event(
+                "role_completed",
+                run_id=run_id,
+                case_id=case.id,
+                role="evidence_verifier",
+                model=provider.model_name,
+                latency_ms=round((time.monotonic() - role_started) * 1000),
+            )
         except Exception as error:  # noqa: BLE001 - provider failures must fail closed
             role_traces.append(
                 RoleTrace(
@@ -156,6 +231,23 @@ async def run_case(
                     error=f"{type(error).__name__}: {error}",
                 )
             )
+            log_event(
+                "role_failed",
+                severity="ERROR",
+                run_id=run_id,
+                case_id=case.id,
+                role="evidence_verifier",
+                model=provider.model_name,
+                latency_ms=round((time.monotonic() - role_started) * 1000),
+                error_type=type(error).__name__,
+            )
+    else:
+        log_event(
+            "verifier_skipped",
+            run_id=run_id,
+            case_id=case.id,
+            blocked_stage="no_exact_review_proposals",
+        )
 
     verification_counts = Counter(item.source_id for item in verification.verifications)
     verification_by_id = {item.source_id: item for item in verification.verifications}
@@ -210,7 +302,7 @@ async def run_case(
         raise RuntimeError("Proposed candidate order changed")
     completed_at = _now()
     return PipelineResult(
-        run_id=str(uuid.uuid4()),
+        run_id=run_id,
         case_id=case.id,
         case_type=case.type,
         scenario=case.scenario,

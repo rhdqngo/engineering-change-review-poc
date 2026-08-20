@@ -137,6 +137,65 @@ def validate_expected_evidence(
             raise DataIntegrityError(f"{case.id} expected evidence is not an exact source span")
 
 
+def load_experiment_manifest(
+    root: Path | None = None, name: str = "ecr-poc-v2.json"
+) -> dict[str, Any]:
+    root = root or repository_root()
+    return _load_json(root / "data" / "experiments" / name)
+
+
+def validate_experiment_manifest(
+    root: Path | None = None, name: str = "ecr-poc-v2.json"
+) -> dict[str, str]:
+    root = root or repository_root()
+    manifest = load_experiment_manifest(root, name)
+    if manifest.get("experiment_id") != "ecr-poc-preregistered-v2":
+        raise DataIntegrityError("Unexpected v2 experiment ID")
+    if manifest.get("results_observed_before_freeze") is not False:
+        raise DataIntegrityError("v2 manifest must be frozen before observing v2 results")
+    _, top_k, cases = load_cases(root)
+    if int(manifest.get("top_k", -1)) != top_k:
+        raise DataIntegrityError("v2 manifest Top-K does not match frozen cases")
+    expected_counts = manifest.get("case_counts")
+    actual_counts: dict[str, int] = {}
+    for case in cases:
+        actual_counts[case.type] = actual_counts.get(case.type, 0) + 1
+    if expected_counts != actual_counts:
+        raise DataIntegrityError("v2 manifest case distribution changed")
+    files = manifest.get("files")
+    if not isinstance(files, dict) or not files:
+        raise DataIntegrityError("v2 manifest is missing frozen files")
+    validated: dict[str, str] = {}
+    for relative, expected_hash in files.items():
+        path = root / str(relative)
+        if not path.is_file():
+            raise DataIntegrityError(f"v2 frozen file is missing: {relative}")
+        actual_hash = sha256_file(path)
+        if actual_hash != expected_hash:
+            raise DataIntegrityError(
+                f"v2 frozen file hash mismatch for {relative}: {actual_hash} != {expected_hash}"
+            )
+        validated[str(relative)] = actual_hash
+    prompt_file = manifest.get("prompt_file")
+    prompt_hashes = manifest.get("prompt_hashes")
+    if not isinstance(prompt_file, str) or not isinstance(prompt_hashes, dict):
+        raise DataIntegrityError("v2 manifest is missing role prompt hashes")
+    prompt_document = _load_json(root / prompt_file)
+    if prompt_document.get("version") != manifest.get("prompt_version"):
+        raise DataIntegrityError("v2 prompt version changed")
+    expected_roles = {"change_analyst", "engineering_review", "evidence_verifier"}
+    if set(prompt_hashes) != expected_roles:
+        raise DataIntegrityError("v2 role prompt hash set changed")
+    for role in expected_roles:
+        instruction = prompt_document.get(role)
+        if not isinstance(instruction, str) or not instruction:
+            raise DataIntegrityError(f"v2 prompt instruction is missing: {role}")
+        actual_hash = hashlib.sha256(instruction.encode("utf-8")).hexdigest()
+        if actual_hash != prompt_hashes[role]:
+            raise DataIntegrityError(f"v2 role prompt hash mismatch for {role}")
+    return validated
+
+
 def validate_all(root: Path | None = None) -> dict[str, int]:
     root = root or repository_root()
     validate_freeze(root)
@@ -144,6 +203,7 @@ def validate_all(root: Path | None = None) -> dict[str, int]:
     artifacts = load_artifacts(root)
     _, _, cases = load_cases(root)
     validate_expected_evidence(cases, artifacts)
+    validate_experiment_manifest(root)
     type_counts: dict[str, int] = {}
     for case in cases:
         type_counts[case.type] = type_counts.get(case.type, 0) + 1

@@ -1,49 +1,44 @@
-# GCP Deployment Preparation
+# GCP v2 Deployment
 
-The container serves the Demo UI/API on `$PORT` and uses Application Default Credentials for Vertex AI. No secret is embedded in the image or environment file.
+The private Cloud Run service displays an explicitly published GCS result. A separate private Cloud Run Job performs the billable 18-case ADK/Vertex evaluation. The browser cannot trigger that Job.
 
-## Required APIs and least-privilege identities
+## Identities and storage
 
-- Cloud Run Admin and Service Account User are deployment-time permissions.
-- Cloud Build and Artifact Registry are needed when deploying from source.
-- The runtime service account needs `roles/aiplatform.user` for Vertex model and embedding calls.
-- Cloud Run sends stdout/stderr request and application logs to Cloud Logging.
+- `ecr-poc-build`: existing source-build identity with `roles/run.builder`.
+- `ecr-poc-web`: Cloud Run service identity with `roles/storage.objectViewer` on the dedicated bucket only.
+- `ecr-poc-job`: Cloud Run Job identity with bucket-level `roles/storage.objectUser` and project-level `roles/aiplatform.user`.
+- Bucket: `ecr-poc-<project-number>-<region>`, uniform access, public access prevention enforced, versioning enabled.
 
-Actual API enablement, Artifact Registry/Cloud Build use, service-account creation, and deployment create external or billable resources and require explicit user approval immediately before execution.
+The default Compute service account is not used by either workload. Its existing project roles are outside this PoC's removal scope.
 
-## Prepared deployment sequence
+## Mandatory freeze precondition
 
-Set `PROJECT_ID` in the operator shell, then run only after approval:
+Provisioning, deployment, and execution refuse to run unless the worktree is clean and `HEAD`, `origin/main`, and `ecr-poc-v2-freeze` are the same commit. The tag and push require explicit approval before any v2 model result exists.
+
+## Approved phases
+
+Each mutating or billable phase requires its own explicit switch:
 
 ```powershell
+.\scripts\provision-gcp.ps1 -ProjectId $PROJECT_ID -Region asia-northeast3 -ApproveBillableResources
 .\scripts\deploy-cloud-run.ps1 -ProjectId $PROJECT_ID -Region asia-northeast3 -ApproveBillableResources
-```
-
-The script deploys a private service and deliberately refuses to run without the explicit approval switch. It enables Cloud Build, creates or reuses a dedicated `ecr-poc-build` identity with only `roles/run.builder`, uses the repository Dockerfile, limits the PoC to one scale-to-zero instance, and does not grant unauthenticated access.
-
-## Post-deployment evidence checklist
-
-1. `GET /health` returns `{"status":"ok","data_freeze":"valid"}`.
-2. DIR-01 loads the same candidate seal captured in the corresponding raw run.
-3. CLN-01 has zero verified reviews; a semantic or cross-artifact representative case renders its saved evaluation result.
-4. A rejected unsupported output never exposes its proposed evidence as final advice.
-5. `gcloud run services logs read ecr-poc --project $PROJECT_ID --region $REGION --limit 50` contains startup, health, and representative request entries without secrets.
-
-The authenticated API checks and initial Cloud Logging read are automated by:
-
-```powershell
+.\scripts\run-cloud-evaluation.ps1 -ProjectId $PROJECT_ID -Region asia-northeast3 -ApproveBillableRun
+.\scripts\publish-cloud-evaluation.ps1 -ProjectId $PROJECT_ID -Region asia-northeast3 -RunId <validated-run-id> -ApprovePublish
 .\scripts\verify-cloud-run.ps1 -ProjectId $PROJECT_ID -Region asia-northeast3
 ```
 
-For actual browser validation of the private service, run an authenticated local proxy and open its localhost URL:
+Provisioning uploads immutable v2 inputs and the historical v1 result. Deployment builds once and assigns the exact same image digest to the web service and Job. Execution uses one task, no retries, and a 30-minute timeout, but never changes the published pointer. The separately approved publish command validates the terminal checkpoint and immutable result before changing `published/demo.json`.
+
+## Required verification
+
+- Authenticated health reports `result_store=gcs`, a published run ID, and a valid freeze.
+- The published run has 18 cases, matching arm seals, recomputed metrics, exact verified evidence, and no role errors.
+- Service and Job use their dedicated identities and neither identity has Editor, Owner, or Storage Admin.
+- Structured Cloud Logging events trace the published run without prompt, raw output, evidence, credential, or token content.
+- Direct unauthenticated access remains denied.
+
+For browser validation, proxy the private service and open `http://127.0.0.1:8093`:
 
 ```powershell
 gcloud run services proxy ecr-poc --project $PROJECT_ID --region asia-northeast3 --port 8093
-```
-
-## Local container validation
-
-```powershell
-docker build -t ecr-poc:local .
-docker run --rm -p 8080:8080 ecr-poc:local
 ```

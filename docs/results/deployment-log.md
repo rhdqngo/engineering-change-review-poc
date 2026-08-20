@@ -5,6 +5,10 @@ region: `asia-northeast3`
 service: `ecr-poc`  
 updated: 2026-08-20
 
+## V2 completion status
+
+The original private service below remains the deployed v1 state. The v2 local implementation now includes a dedicated GCS bucket contract, separate web and evaluation-Job identities, same-image Cloud Run service/Job deployment, structured run events, immutable checkpoints/results, and validated publication. No v2 resource change, deployment, or model execution has occurred yet because the required remote freeze and external approvals are still pending. Final v2 resource names, IAM evidence, execution ID, image digest, GCS generations/hashes, logs, and browser validation will be appended only after those approved operations complete.
+
 ## Approved attempt 1
 
 The user approved Cloud Build enablement and a private Cloud Run deployment. The prepared scale-to-zero deployment was invoked with unauthenticated access disabled.

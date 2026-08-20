@@ -131,6 +131,18 @@ class PipelineResult(StrictModel):
     retrieval_hit: bool
 
 
+class RunProvenance(StrictModel):
+    source_commit: str
+    freeze_tag: str
+    prompt_version: str
+    prompt_hashes: dict[str, str]
+    input_manifest_sha256: str
+    artifact_store: str
+    cloud_execution: str | None = None
+    container_image_digest: str | None = None
+    adk_version: str | None = None
+
+
 class EvaluationRun(StrictModel):
     experiment_id: str
     run_id: str
@@ -143,3 +155,20 @@ class EvaluationRun(StrictModel):
     configuration: dict[str, Any]
     cases: list[PipelineResult]
     metrics: dict[str, Any]
+    provenance: RunProvenance | None = None
+
+    @model_validator(mode="after")
+    def v2_requires_provenance(self) -> EvaluationRun:
+        if self.experiment_id == "ecr-poc-preregistered-v2" and self.provenance is None:
+            raise ValueError("v2 evaluation runs require provenance")
+        return self
+
+
+class PublishedPointer(StrictModel):
+    run_id: str
+    experiment_id: str
+    object_name: str
+    generation: int
+    sha256: str
+    published_at: str
+    source_commit: str
