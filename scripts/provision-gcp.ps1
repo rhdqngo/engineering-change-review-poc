@@ -59,8 +59,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 gcloud storage buckets update "gs://$bucketName" `
-    --public-access-prevention=enforced `
-    --enable-versioning `
+    --pap `
+    --versioning `
     --quiet
 if ($LASTEXITCODE -ne 0) {
     throw "Dedicated ECR bucket hardening failed."

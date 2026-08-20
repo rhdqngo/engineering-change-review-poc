@@ -27,8 +27,8 @@ updated: 2026-08-20
 | Validation | complete | Data, lint, type, 13 tests, package build, health, fixture and actual raw artifacts, exact-span audit, and rendered browser evidence pass. |
 | GCP deployment and verification | complete | After exact approval, a dedicated `roles/run.builder` identity built private revision `ecr-poc-00002-v9g`; authenticated health/catalog, actual browser flows, fail-closed rejection, unauthenticated 403, and Cloud Logging passed. |
 | V2 local implementation | complete | Versioned role prompt/experiment hashes, GCS-authoritative prompt injection, run provenance, role timeouts, reviewer reconciliation, checkpoint-sealed publication gate, dedicated-identity scripts, published-result API/UI, 27 tests, lint, type, data validation, script parsing, and package build pass. |
-| V2 remote freeze | pending approval | The implementation must be committed, pushed, and tagged `ecr-poc-v2-freeze` before any v2 model result exists. |
-| V2 GCP batch and publication | pending approval | Provision bucket/IAM, deploy the same image to the service and Job, execute the approved billable 18-case run, validate, publish, and capture cloud/browser evidence. |
+| V2 remote freeze | corrective update in progress | The initial freeze was published at `34b1af7`; a pre-run gcloud flag compatibility correction is validated and must become the new `ecr-poc-v2-freeze` commit before provisioning resumes. No v2 model result exists. |
+| V2 GCP batch and publication | in progress | The dedicated bucket was created with uniform access, then provisioning stopped before accounts/IAM/uploads because the installed gcloud requires boolean PAP/versioning flags. The corrected idempotent retry is next. |
 
 ## Completed major results
 
@@ -67,14 +67,12 @@ updated: 2026-08-20
 
 ## Blockers and decisions needed
 
-- Git commit/push/tag approval is required before establishing the remote v2 freeze.
-- GCP bucket/IAM creation and service/Job deployment require a separate external-change approval.
-- The billable 18-case Vertex Job requires its own execution approval. No v2 model result exists yet.
-- The validated run requires a separate publish-pointer approval after execution succeeds.
+- All remaining freeze, provisioning, deployment, billable execution, publication, verification, evidence-commit, and push phases were explicitly approved on 2026-08-20.
+- No v2 model result exists yet; provisioning must not resume until the corrected commit, `origin/main`, and freeze tag agree.
 
 ## Next checkpoint
 
-- Prepare the verified local changes as the v2 freeze commit, then request explicit commit/push/tag approval before any GCP mutation or v2 run.
+- Commit and publish the validated gcloud flag correction, move the freeze tag to that commit, then resume idempotent provisioning.
 
 ## Related artifacts
 
