@@ -1,7 +1,7 @@
 # V6 Purpose-driven Engineering Impact Review Protocol
 
 status: initial frozen run retained; reliability revision payload sealed
-project: `iceu-687`  
+project: `<your-gcp-project-id>`
 region: `asia-northeast3`
 
 ## Purpose and authority

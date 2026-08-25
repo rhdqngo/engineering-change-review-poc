@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f7f6f2">
+  <title>Engineering Change Impact Review Copilot</title>
+  <link rel="stylesheet" href="styles.css?v=20260821af">
+</head>
+<body>
+<main class="presentation" aria-label="Engineering Change Impact Review Copilot 발표">
+  <div class="stage" id="stage" data-mode="cosmos" data-act="problem" data-focus="none" data-direction="forward">
+    <div class="star-field" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="flight-path" aria-hidden="true"></div>
+
+    <section class="scene scene-space cue-node" data-enter="0" data-exit="5" aria-labelledby="space-title">
+      <div class="space-world">
+        <header class="opening cue-node" data-enter="0" data-exit="0">
+          <h1 id="space-title">Engineering Change<br><em>Impact Review Copilot</em></h1>
+          <p>cFS 변경 영향 후보를 정확한 근거와 함께 좁혀주는 Human Engineer 검토 지원 도구</p>
+        </header>
+        <img class="spacecraft cue-node" data-enter="1" data-exit="5" src="assets/spacecraft-transparent.png" alt="통신 안테나와 태양전지판을 갖춘 심우주 탐사선">
+        <div class="spacecraft-glow cue-node" data-enter="1" data-exit="5" aria-hidden="true"></div>
+        <div class="system-callouts cue-node" data-enter="2" data-exit="3" aria-label="우주선을 구성하는 대표 시스템">
+          <svg class="callout-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <polyline class="link-comms" points="15,15 43,15 55,28"></polyline>
+            <polyline class="link-guidance" points="82,14 80,18 77,29"></polyline>
+            <polyline class="link-power" points="15,72 24,72 24,57 31,43"></polyline>
+            <polyline class="link-flight" points="73,75 67,75 58,53"></polyline>
+            <circle class="link-comms" cx="55" cy="28" r="0.55"></circle>
+            <circle class="link-guidance" cx="77" cy="29" r="0.55"></circle>
+            <circle class="link-power" cx="31" cy="43" r="0.55"></circle>
+            <circle class="link-flight" cx="58" cy="53" r="0.7"></circle>
+          </svg>
+          <div class="callout callout-comms"><b>고이득 안테나</b></div>
+          <div class="callout callout-guidance"><b>별 추적기</b></div>
+          <div class="callout callout-power"><b>태양전지판</b></div>
+          <div class="callout callout-flight"><b>비행 컴퓨터</b></div>
+        </div>
+        <div class="avionics-lock cue-node" data-enter="3" data-exit="3" aria-hidden="true"><span></span></div>
+        <div class="system-hierarchy" aria-label="비행 소프트웨어를 구성하는 역할과 세부 기능">
+          <header class="hierarchy-heading cue-node" data-enter="3" data-exit="5">
+            <p class="kicker">시스템 분해</p>
+            <h2>복잡한 시스템</h2>
+          </header>
+          <svg class="tree-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <g class="tree-branches cue-node" data-enter="4" data-exit="5">
+              <path pathLength="1" d="M21 56 H28"></path>
+              <path pathLength="1" d="M28 56 C31 56 31 26 36 26"></path>
+              <path pathLength="1" d="M28 56 C31 56 31 43 36 43"></path>
+              <path pathLength="1" d="M28 56 C31 56 31 60 36 60"></path>
+              <path pathLength="1" d="M28 56 C31 56 31 77 36 77"></path>
+            </g>
+            <g class="tree-leaf-links cue-node" data-enter="5" data-exit="5">
+              <path pathLength="1" d="M50 26 H93"></path><path pathLength="1" d="M50 43 H93"></path>
+              <path pathLength="1" d="M50 60 H93"></path><path pathLength="1" d="M50 77 H93"></path>
+            </g>
+          </svg>
+          <button type="button" class="system-root cue-node" id="system-expand" data-enter="3" data-exit="5" aria-expanded="false" aria-label="비행 소프트웨어 구성 펼치기">
+            <b>비행<br>소프트웨어</b>
+          </button>
+          <div class="role-nodes cue-node" data-enter="4" data-exit="5">
+            <div style="--row:0"><b>유도·항법·제어</b></div>
+            <div style="--row:1"><b>명령·데이터 처리</b></div>
+            <div style="--row:2"><b>전력·열 제어</b></div>
+            <div style="--row:3"><b>고장 감지·복구</b></div>
+          </div>
+          <div class="function-nodes cue-node" data-enter="5" data-exit="5" aria-label="청중 이해를 위한 대표 기능 예시">
+            <div class="function-row"><span>별 추적기 입력</span><span>관성 센서 입력</span><span>궤도 추정</span><span>자세 제어</span></div>
+            <div class="function-row"><span>명령 수신</span><span>명령 해석</span><span>탑재체 제어</span><span>상태 전송</span></div>
+            <div class="function-row"><span>전력 분배</span><span>배터리 관리</span><span>온도 감시</span><span>히터 제어</span></div>
+            <div class="function-row"><span>한계값 감시</span><span>고장 격리</span><span>안전 모드</span><span>이벤트 기록</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene scene-cfs cue-node" data-enter="6" data-exit="9" aria-labelledby="cfs-title">
+      <header class="scene-heading cue-node" data-enter="6" data-exit="7">
+        <h2 id="cfs-title">cFS <em>core Flight System</em></h2>
+      </header>
+      <div class="cfs-system cue-node" data-enter="6" data-exit="7" aria-label="발행자에서 소프트웨어 버스를 거쳐 세 구독자로 값이 전달되고, 발행 방식 변경이 구독자 이상으로 전파되는 구조">
+        <p class="fault-kicker">영향 전파</p>
+        <section class="bus-column bus-publisher" aria-label="발행자">
+          <p class="bus-role-label">발행자</p>
+          <div class="app-node app-a"><b>Guidance</b><small><i class="state-normal">정상 값 발행</i><i class="state-fault">발행 방식 변경</i></small></div>
+        </section>
+        <section class="bus-route" aria-label="소프트웨어 버스 전파 경로">
+          <p class="bus-role-label">전파 경로</p>
+          <div class="bus"><span>cFS SOFTWARE BUS</span></div>
+          <span class="bus-packet packet-a" aria-hidden="true"></span>
+          <span class="fault-packet" aria-hidden="true"><b>변경 값</b></span>
+        </section>
+        <section class="bus-column bus-subscribers" aria-label="구독자">
+          <p class="bus-role-label">구독자</p>
+          <div class="subscriber-list">
+            <div class="app-node app-b"><b>Telemetry</b><small><i class="state-normal">정상 수신</i><i class="state-fault">이상 발생</i></small></div>
+            <div class="app-node app-c"><b>Command</b><small><i class="state-normal">정상 수신</i><i class="state-fault">이상 발생</i></small></div>
+            <div class="app-node app-d"><b>Mission</b><small><i class="state-normal">정상 수신</i><i class="state-fault">이상 발생</i></small></div>
+          </div>
+        </section>
+      </div>
+      <div class="cfs-benefit cue-node" data-enter="6" data-exit="6"><span>모듈화</span><span>재사용</span><span>느슨한 결합</span></div>
+      <div class="artifact-flow cue-node" data-enter="8" data-exit="9" aria-label="사람이 변경을 접수하고 연관 항목을 찾아 문서와 코드 및 시험을 대조한 뒤 수정 범위를 판단하는 흐름">
+        <p class="kicker manual-process-title">사람의 변경 검토</p>
+        <div class="flow-card change-card" style="--collapse-y:13vh"><b>변경 접수</b><small>변경 내용 · 대상 시스템</small></div><i></i>
+        <div class="flow-card" style="--collapse-y:6.5vh"><b>연관 항목 찾기</b><small>요구 · 설계 · 코드 · 시험</small></div><i></i>
+        <div class="flow-card" style="--collapse-y:0vh"><b>문서 대조</b><small>연결 관계 · 내용 일관성</small></div><i></i>
+        <div class="flow-card" style="--collapse-y:-6.5vh"><b>영향 확인</b><small>구현 범위 · 검증 범위</small></div><i></i>
+        <div class="flow-card" style="--collapse-y:-13vh"><b>수정 판단</b><small>변경 계획 · 재검토 대상</small></div>
+        <div class="ai-review-card" aria-label="AI가 변경 영향 추적과 대조 및 확인 결과를 하나의 검토 카드로 정리"><b>AI 변경 영향 검토</b><small>추적 · 대조 · 확인 · 정리</small></div>
+      </div>
+      <div class="human-question cue-node" data-enter="9" data-exit="9"><div class="human" aria-hidden="true"><i></i><span></span></div><p>LLM을 활용한다면...?</p></div>
+    </section>
+
+    <section class="scene scene-solution cue-node" data-enter="10" data-exit="19" aria-labelledby="solution-title">
+      <header class="solution-heading cue-node" data-enter="10" data-exit="10"><h2 id="solution-title">에이전트 구조</h2></header>
+      <div class="pipeline-map cue-node" data-enter="10" data-exit="19" aria-label="변경 입력부터 엔지니어 최종 판단까지 이어지는 처리 흐름">
+        <svg class="pipeline-route-full" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true"><path class="route-base" d="M100 258 H900 V414 H300"></path><path class="route-trace" pathLength="1" d="M100 258 H900 V414 H300"></path></svg><div class="pipeline-line pipeline-line-compact" aria-hidden="true"></div>
+        <div class="pipe-node" data-node="input" style="--i:0;--x:10%;--y:43%"><b>변경 입력</b><small>요청 접수</small><span class="gcp-tag"><i aria-hidden="true"></i>Cloud Run API</span></div>
+        <div class="pipe-node deterministic" data-node="query" style="--i:1;--x:30%;--y:43%"><b>자연어 처리</b><small>검색어 생성</small></div>
+        <div class="pipe-node retrieval" data-node="broad" style="--i:2;--x:50%;--y:43%"><b>1차 검색</b><small>후보 수집</small><span class="gcp-tag"><i aria-hidden="true"></i>Vertex AI 임베딩</span></div>
+        <div class="pipe-node retrieval" data-node="expanded" style="--i:3;--x:70%;--y:43%"><b>연관 확장</b><small>연결 추적</small><span class="gcp-tag"><i aria-hidden="true"></i>Cloud Storage 기준 자료</span></div>
+        <div class="pipe-node retrieval" data-node="final" style="--i:4;--x:90%;--y:43%"><b>후보 압축</b><small>검토 대상</small></div>
+        <div class="pipe-node llm" data-node="reviewer" style="--i:5;--x:90%;--y:69%"><b>영향 분석</b><small>AI</small><span class="gcp-tag"><i aria-hidden="true"></i>Google ADK · Gemini</span></div>
+        <div class="pipe-node deterministic" data-node="validator" style="--i:6;--x:70%;--y:69%"><b>근거 확인</b><small>규칙 검사</small></div>
+        <div class="pipe-node llm" data-node="verifier" style="--i:7;--x:50%;--y:69%"><b>독립 검증</b><small>AI</small><span class="gcp-tag"><i aria-hidden="true"></i>Google ADK · Gemini</span></div>
+        <div class="pipe-node human-node" data-node="human" style="--i:8;--x:30%;--y:69%"><b>최종 판단</b><small>엔지니어</small></div>
+        <div class="artifact-token cue-node" data-enter="11" data-exit="19" aria-label="현재 처리 중인 Incoming Artifact"><i></i><b>Δ</b></div>
+      </div>
+      <div class="scenario-workbench cue-node" data-enter="11" data-exit="19">
+        <article class="scenario-panel input-panel cue-node" data-enter="11" data-exit="11"><section class="scenario-explain"><span class="zone-label">단계 설명</span><h3>사용자의 변경 질문을 그대로 접수</h3></section><section class="scenario-example"><span class="zone-label">실제 사용</span><div class="user-query"><b>사용자</b><p>“SAMPLE_APP의 Int2 상한 조건을 바꾸려는데,<br>어떤 코드와 시험이 영향받아?”</p></div></section><section class="scenario-meaning"><span class="zone-label">처리 의미</span><p>사용자는 바꾸려는 내용과 확인할 영향을 한 문장으로 묻는다.</p></section></article>
+        <article class="scenario-panel cue-node" data-enter="12" data-exit="12"><section class="scenario-explain"><span class="zone-label">단계 설명</span><h3>질문에서 대상·식별자·변경 의도를 구조화</h3></section><section class="scenario-example"><span class="zone-label">에이전트 처리</span><div class="process-visual nlp-visual" aria-label="사용자 질문에서 SAMPLE_APP과 Int2 및 상한 변경 의도가 추출되는 과정"><div class="nlp-sentence">“Int2 상한을 바꾸면?”</div><i class="flow-arrow">→</i><div class="nlp-tokens"><span><small>대상</small>SAMPLE_APP</span><span><small>식별자</small>Int2</span><span><small>의도</small>상한 변경</span></div></div></section><section class="scenario-meaning"><span class="zone-label">처리 의미</span><p>시스템은 질문에서 바꿀 대상, 핵심 식별자, 변경 내용을 구조화한다.</p></section></article>
+        <article class="scenario-panel cue-node" data-enter="13" data-exit="13"><section class="scenario-explain"><span class="zone-label">단계 설명</span><h3>질문을 두 검색 경로로 보내 관련 후보를 넓게 수집</h3></section><section class="scenario-example"><span class="zone-label">에이전트 처리</span><div class="process-visual search-visual" aria-label="SAMPLE_APP와 Int2 질문이 키워드 및 의미 검색을 거쳐 후보 40개로 모이는 과정"><div class="visual-input">SAMPLE_APP · Int2</div><div class="dual-search"><span>키워드 검색</span><span>의미 검색</span></div><div class="candidate-cluster" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="visual-count"><b>40</b><small>후보</small></div></div></section><section class="scenario-meaning"><span class="zone-label">처리 의미</span><p>같은 단어가 있는 자료와 뜻이 비슷한 자료를 함께 찾아 빠뜨릴 가능성을 줄인다.</p></section></article>
+        <article class="scenario-panel cue-node" data-enter="14" data-exit="14"><section class="scenario-explain"><span class="zone-label">단계 설명</span><h3>Int2에서 직접 연결된 산출물로 범위를 확장</h3></section><section class="scenario-example"><span class="zone-label">에이전트 처리</span><div class="process-visual expansion-visual" aria-label="Int2에서 소스와 시험 및 설정으로 직접 연결이 확장되는 과정"><svg viewBox="0 0 600 120" preserveAspectRatio="none" aria-hidden="true"><path d="M120 60 H300 M300 60 L455 20 M300 60 H455 M300 60 L455 100"></path></svg><b class="expansion-hub">Int2</b><span class="expansion-junction">직접 연결</span><span class="expansion-node source">소스</span><span class="expansion-node test">시험</span><span class="expansion-node config">설정</span><strong class="expansion-count">200<small>최대 후보</small></strong></div></section><section class="scenario-meaning"><span class="zone-label">처리 의미</span><p>찾은 자료와 직접 연결된 코드, 시험, 설정까지 따라가 확인 범위를 넓힌다.</p></section></article>
+        <article class="scenario-panel cue-node" data-enter="15" data-exit="15"><section class="scenario-explain"><span class="zone-label">단계 설명</span><h3>넓은 후보 풀을 고정된 검토 목록으로 압축</h3></section><section class="scenario-example"><span class="zone-label">에이전트 처리</span><div class="process-visual compression-visual" aria-label="후보 200개가 점수화와 중복 제거를 거쳐 검토 후보 10개로 압축되는 과정"><div class="raw-pool"><b>200</b><span class="pool-dots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div><div class="funnel"><span>점수화</span><span>중복 제거</span></div><div class="fixed-docket"><b>10</b><span>검토 목록</span></div></div></section><section class="scenario-meaning"><span class="zone-label">처리 의미</span><p>겹치거나 관련이 적은 항목을 걸러 사람이 확인할 10개만 남긴다.</p></section></article>
+        <article class="scenario-panel cue-node" data-enter="16" data-exit="16"><section class="scenario-explain"><span class="zone-label">단계 설명</span><h3>각 후보를 검증 가능한 영향 주장으로 분해</h3></section><section class="scenario-example"><span class="zone-label">에이전트 처리</span><div class="process-visual claim-visual" aria-label="검토 후보가 구현 영향과 시험 영향 주장으로 나뉘는 과정"><div class="candidate-card">검토 후보</div><i class="flow-arrow">→</i><div class="generated-claims"><span><b>구현</b> 상한 비교 로직</span><span><b>시험</b> 경계 조건 검증</span></div></div></section><section class="scenario-meaning"><span class="zone-label">처리 의미</span><p>남은 항목마다 바뀔 수 있는 코드와 다시 확인할 시험을 따로 정리한다.</p></section></article>
+        <article class="scenario-panel evidence-panel cue-node" data-enter="17" data-exit="17"><section class="scenario-explain"><span class="zone-label">단계 설명</span><h3>현재 구현에서 Int2 검사를 추가할 지점을 확인</h3></section><section class="scenario-example"><span class="zone-label">에이전트 처리</span><div class="process-visual evidence-visual" aria-label="Int2 추가 요구가 현재 Int1만 검사하는 원문과 대조되어 변경 지점으로 확인되는 과정"><div class="claim-card">Int2 상한 검사 추가</div><i class="match-link">→</i><div class="evidence-source"><small>현재 구현 · Int1만 검사</small><code>if (TblDataPtr-&gt;Int1 &gt; SAMPLE_APP_PLATFORM_TBL_ELEMENT_1_MAX)</code></div><strong>변경 지점 확인</strong></div></section><section class="scenario-meaning"><span class="zone-label">처리 의미</span><p>현재 Int1만 검사하는 구현을 찾아, Int2 상한 검사를 추가할 지점을 확인한다.</p></section></article>
+        <article class="scenario-panel evidence-panel cue-node" data-enter="18" data-exit="18"><section class="scenario-explain"><span class="zone-label">단계 설명</span><h3>독립 에이전트가 주장과 근거 묶음을 재검증</h3></section><section class="scenario-example"><span class="zone-label">에이전트 처리</span><div class="process-visual verifier-visual" aria-label="주장과 원문 근거 묶음이 독립 검증을 거쳐 근거 있음 판정을 받는 과정"><div class="evidence-packet"><span>영향 주장</span><span>원문 근거</span></div><i class="flow-arrow">→</i><div class="verifier-core">독립 검증</div><i class="flow-arrow">→</i><strong>근거 있음</strong></div></section><section class="scenario-meaning"><span class="zone-label">처리 의미</span><p>다른 에이전트가 같은 근거로 다시 확인해 근거 없는 판단을 걸러낸다.</p></section></article>
+        <article class="scenario-panel response-panel cue-node" data-enter="19" data-exit="19"><section class="scenario-explain"><span class="zone-label">단계 설명</span><h3>검증된 영향과 근거를 사용자 응답으로 조립</h3></section><section class="scenario-example"><span class="zone-label">에이전트 처리</span><div class="process-visual response-visual" aria-label="검증된 구현 및 시험 영향이 사용자용 응답 카드로 합쳐지는 과정"><div class="verified-pair"><span>구현 · TblValidationFunc</span><span>시험 · Test_TblValidationFunc</span></div><i class="flow-arrow">→</i><div class="answer-card"><b>영향 후보 2건</b><small>원문 근거 확인 완료</small></div></div><p class="scenario-result">XART-03 · <strong>2 verified claims</strong> · ADDITIONAL VERIFIED 0</p></section><section class="scenario-meaning"><span class="zone-label">사용자 의미</span><p>사용자는 확인할 코드와 시험, 그 근거를 한 번에 받아 최종 결정을 내린다.</p></section></article>
+      </div>
+      <p class="human-boundary cue-node" data-enter="19" data-exit="19">승인·거부하지 않음 <i></i> 자동 수정하지 않음 <i></i> 무영향을 보증하지 않음 <strong>최종 판단은 Human Engineer</strong></p>
+    </section>
+
+    <section class="scene scene-test cue-node" data-enter="20" data-exit="21" aria-labelledby="test-title">
+      <header class="test-heading cue-node" data-enter="20" data-exit="20"><h2 id="test-title">테스트 기준</h2></header>
+      <div class="metric-lens cue-node" data-enter="20" data-exit="20" aria-label="테스트 기준과 설명"><div><b>1차 검색</b><p>실제 영향 항목이 처음 모은 40개 후보 안에 들어오는지 확인한다.</p></div><div><b>연관 확장</b><p>직접 연결된 영향 항목이 확장된 200개 후보 안에 포함되는지 확인한다.</p></div><div><b>후보 압축</b><p>실제 영향 항목이 사람이 검토할 최종 10개 안에 남는지 확인한다.</p></div><div><b>근거 검증</b><p>찾아낸 영향이 정확한 원문 근거와 함께 제시되는지 확인한다.</p></div><div><b>오경보</b><p>영향이 없어야 하는 사례에 잘못된 경고가 생기지 않는지 확인한다.</p></div></div>
+      <div class="closing cue-node" data-enter="21" data-exit="21"><h2>감사합니다</h2></div>
+    </section>
+
+    <div class="act-curtain" aria-hidden="true"></div>
+    <p class="source-line" id="source-line"></p>
+  </div>
+  <nav class="presentation-controls" aria-label="발표 진행"><div class="act-rail" aria-hidden="true"><span data-act-label="problem">CHAPTER 1</span><span data-act-label="architecture">CHAPTER 2</span><span data-act-label="solution">CHAPTER 3</span><span data-act-label="test">CHAPTER 4</span><i id="progress"></i></div><div class="nav-buttons"><button type="button" id="prev" aria-label="이전 장면">←</button><button type="button" id="next" aria-label="다음 장면">→</button></div></nav>
+  <div class="sr-only" id="announcer" aria-live="polite"></div>
+</main>
+<script src="deck.js?v=20260821af"></script>
+</body>
+</html>

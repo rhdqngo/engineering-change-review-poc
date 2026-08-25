@@ -1,7 +1,0 @@
-interface:
-  display_name: "UI Project Start"
-  short_description: "Explore and probe initial UI directions, then establish a provisional Foundation with perceptual comfort and narrative restraint."
-  default_prompt: "First confirm that the project is operational. If it is empty, prioritize project-bootstrap. Otherwise compare three structurally distinct directions with isolated probes under matched content, font, and copy conditions, then establish a provisional Foundation, visual invariants, render matrix, and representative vertical slice that include perceptual comfort and narrative restraint."
-
-policy:
-  allow_implicit_invocation: true

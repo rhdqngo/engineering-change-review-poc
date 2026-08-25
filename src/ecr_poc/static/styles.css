@@ -108,6 +108,9 @@ footer a { color: var(--green); }
 .retrieval-scope div { min-width: 0; padding: 12px 14px; }
 .retrieval-scope div + div { border-left: 1px solid var(--line); }
 .retrieval-scope dd { overflow-wrap: anywhere; font: 700 13px/1.4 ui-monospace, monospace; }
+.evaluation-retrieval-scope { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 22px; }
+.evaluation-retrieval-scope dd { display: grid; gap: 5px; }
+.scope-fingerprint { color: var(--muted); font: 10px/1.35 ui-monospace, monospace; overflow-wrap: anywhere; }
 .live-result table { min-width: 760px; }
 .evidence-desk { margin: 28px -28px -28px; padding: 28px; background: var(--wash); outline: none; }
 .evidence-meta, #provenance-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 28px; }
@@ -146,6 +149,10 @@ footer a { color: var(--green); }
   .retrieval-scope div + div { border-left: 0; }
   .retrieval-scope div:nth-child(even) { border-left: 1px solid var(--line); }
   .retrieval-scope div:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .retrieval-scope.evaluation-retrieval-scope { grid-template-columns: 1fr; }
+  .retrieval-scope.evaluation-retrieval-scope div + div,
+  .retrieval-scope.evaluation-retrieval-scope div:nth-child(even) { border-left: 0; }
+  .retrieval-scope.evaluation-retrieval-scope div:nth-child(n+2) { border-top: 1px solid var(--line); }
   .evidence-desk { margin: 24px -16px -20px; padding: 22px 16px; }
   .evidence-meta, #provenance-list { grid-template-columns: 1fr; }
 }

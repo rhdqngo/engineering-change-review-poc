@@ -1,7 +1,0 @@
-interface:
-  display_name: "UI Screen Build"
-  short_description: "Implement UI under the active Foundation and polish alignment, text fit, and explanatory copy."
-  default_prompt: "Check project state and the UI Foundation first. If the project is empty, prioritize bootstrap; if it needs an initial direction, prioritize ui-project-start. Otherwise choose repair, extension, or new-flow, implement at the appropriate depth, and validate the Perceptual Polish Pass, visual invariants, render matrix, copy inventory, and explanation-deletion test."
-
-policy:
-  allow_implicit_invocation: true

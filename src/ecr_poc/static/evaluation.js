@@ -25,6 +25,22 @@ function candidateResult(sourceId) {
   return state.result.candidate_results.find((item) => item.source_id === sourceId) || null;
 }
 
+function renderRetrievalScope(result = null) {
+  const retrieval = result?.retrieval || {};
+  const broadCount = Number.isInteger(retrieval.broad_count) && Number.isInteger(retrieval.broad_k)
+    ? `${retrieval.broad_count} / ${retrieval.broad_k}` : "—";
+  const expandedCount = Number.isInteger(retrieval.expanded_count)
+    ? `${retrieval.expanded_count}${Number.isInteger(retrieval.relation_expansion_count) ? ` · ${retrieval.relation_expansion_count} added` : ""}` : "—";
+  const finalCount = Number.isInteger(retrieval.final_k) && Array.isArray(result?.candidates)
+    ? `${result.candidates.length} / ${retrieval.final_k}` : "—";
+  $("#scope-broad-count").textContent = broadCount;
+  $("#scope-expanded-count").textContent = expandedCount;
+  $("#scope-final-count").textContent = finalCount;
+  $("#scope-broad-fingerprint").textContent = retrieval.broad_candidate_fingerprint || "—";
+  $("#scope-expanded-fingerprint").textContent = retrieval.expanded_pool_fingerprint || "—";
+  $("#scope-final-fingerprint").textContent = retrieval.final_docket_fingerprint || result?.candidate_fingerprint || "—";
+}
+
 function showReview(sourceId, claimIndex = 0) {
   const candidate = state.result.candidates.find((item) => item.source_id === sourceId) || null;
   const result = candidateResult(sourceId);
@@ -54,6 +70,7 @@ function clearResultSurface(message) {
   state.resultMetadata = null;
   $("#environment").textContent = message;
   $("#provenance-note").textContent = "No result provenance is exposed while this request is incomplete.";
+  renderRetrievalScope();
   $("#fingerprint").textContent = "Final Docket seal —";
   $("#top-k").textContent = state.topK || "—";
   $("#verified-count").textContent = "—";
@@ -96,8 +113,9 @@ function renderResult(sourceLabel) {
     identifierFingerprint ? `identifier ${identifierFingerprint.slice(0, 12)}…` : null,
     isFixture ? "fixture, not LLM experiment evidence" : null,
   ].filter(Boolean).join(" · ");
+  renderRetrievalScope(result);
   $("#fingerprint").textContent = `Final Docket seal ${result.candidate_fingerprint.slice(0, 12)}…`;
-  $("#fingerprint").title = `Broad ${result.retrieval?.broad_candidate_fingerprint || "—"}\nExpanded ${result.retrieval?.expanded_pool_fingerprint || "—"}\nFinal ${result.candidate_fingerprint}`;
+  $("#fingerprint").title = `Final ${result.candidate_fingerprint}`;
   $("#top-k").textContent = result.candidates.length;
   $("#verified-count").textContent = result.candidate_results.filter((item) => item.status === "VERIFIED_REVIEW").length;
   $("#blocked-count").textContent = result.candidate_results.reduce((total, item) => total + item.blocked_count, 0);

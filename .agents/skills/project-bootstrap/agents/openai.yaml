@@ -1,7 +1,0 @@
-interface:
-  display_name: "Project Bootstrap"
-  short_description: "Turn an empty workspace into an operational project through isolated scaffolding, safe merge, and validation."
-  default_prompt: "Preserve the root control files, generate and validate the official scaffold in staging, merge it safely, synchronize the AGENTS managed blocks and current status directly, and complete any downstream work included in the original request."
-
-policy:
-  allow_implicit_invocation: true

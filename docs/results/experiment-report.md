@@ -82,7 +82,7 @@ Exact spans plus an independent verifier made outputs traceable, but did not mak
 
 ## Deployment validation
 
-After exact user approval, the PoC was built with the repository Dockerfile and deployed privately to Cloud Run in `asia-northeast3`. Final revision `ecr-poc-00002-v9g` passed authenticated freeze health, the 18-case catalog, actual saved-result browser flows, fixture unsupported-evidence rejection, unauthenticated 403, and Cloud Logging inspection. The browser-visible result pins the frozen `results/runs/vertex-adk.json` artifact, whose hash remained unchanged after deployment fixes. Full operational evidence is recorded in `docs/results/deployment-log.md`.
+After exact user approval, the PoC was built with the repository Dockerfile and deployed privately to Cloud Run in `asia-northeast3`. Final revision `ecr-poc-00002-v9g` passed authenticated freeze health, the 18-case catalog, actual saved-result browser flows, fixture unsupported-evidence rejection, unauthenticated 403, and Cloud Logging inspection. The browser-visible result pins the frozen `results/runs/vertex-adk.json` artifact, whose hash remained unchanged after deployment fixes. Process-only deployment logs are retained in Git history rather than the current public tree.
 
 ## Reproduction
 

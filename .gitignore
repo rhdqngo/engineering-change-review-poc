@@ -2,6 +2,19 @@
 AGENTS.override.md
 docs/notes/handoff.local.md
 
+# Local Codex workflow and internal project records
+.agents/
+.codex/
+/AGENTS.md
+/START_HERE.md
+docs/notes/
+docs/plans/current.md
+docs/skill-routing-evals.md
+docs/completion-audit.md
+docs/results/deployment-log.md
+docs/ui/
+docs/plans/LLM 기반 우주 Engineering Change Review.pdf
+
 # Bootstrap / UI probe temporary work
 .bootstrap-work/
 .ui-probes/
@@ -27,9 +40,14 @@ __pycache__/
 venv/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 .runtime/
 .cache/
 *.egg-info/
+*.coverage
+.coverage
+.coverage.*
+htmlcov/
 
 # Temporary test and capture output
 playwright-report/
@@ -37,6 +55,14 @@ test-results/
 coverage/
 .tmp/
 tmp/
+
+# Local presentation design history and superseded exports
+docs/presentation/v6-demo/DESIGN.md
+docs/presentation/v6-demo/Engineering-Change-Impact-Review-Copilot.pdf
+docs/presentation/v6-demo/evidence/
+docs/presentation/v6-demo/assets/nasa-cfs-architecture.png
+docs/presentation/v6-demo/assets/nasa-gateway.jpg
+docs/presentation/v6-demo/assets/spacecraft-stage.png
 
 # Editors and operating systems
 .vscode/

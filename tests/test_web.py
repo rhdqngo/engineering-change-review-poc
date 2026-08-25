@@ -124,6 +124,18 @@ def test_live_and_evaluation_ui_preserve_contract_and_accessible_selection() -> 
     assert 'id="blocked-records"' in evaluation_markup
     assert 'broad_candidate_fingerprint' in script
     assert 'expanded_pool_fingerprint' in script
+    assert 'id="scope-broad-count"' in evaluation_markup
+    assert 'id="scope-expanded-count"' in evaluation_markup
+    assert 'id="scope-final-count"' in evaluation_markup
+    assert 'id="scope-broad-fingerprint"' in evaluation_markup
+    assert 'id="scope-expanded-fingerprint"' in evaluation_markup
+    assert 'id="scope-final-fingerprint"' in evaluation_markup
+    assert 'aria-label="Deterministic retrieval scope"' in evaluation_markup
+    assert 'retrieval.broad_count' in script
+    assert 'retrieval.expanded_count' in script
+    assert 'retrieval.final_docket_fingerprint' in script
+    assert 'renderRetrievalScope();' in script
+    assert '.evaluation-retrieval-scope { grid-template-columns: repeat(3, minmax(0, 1fr));' in styles
     assert '.table-wrap:focus-visible' in styles
     assert '.blocked-record-button' in styles
     assert '#run-button { min-width: 126px; white-space: nowrap; }' in styles

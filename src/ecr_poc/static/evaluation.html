@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Engineering Change Review PoC</title>
-    <link rel="stylesheet" href="/static/styles.css?v=6">
+    <link rel="stylesheet" href="/static/styles.css?v=7">
   </head>
   <body>
     <div class="environment" id="environment">LOCAL DEMO · LOADING</div>
@@ -44,6 +44,20 @@
     <div id="error" class="error" role="alert" hidden></div>
     <main>
       <section class="candidate-pane" aria-labelledby="candidate-title">
+        <dl class="retrieval-scope evaluation-retrieval-scope" aria-label="Deterministic retrieval scope">
+          <div>
+            <dt>Broad Top-40</dt>
+            <dd><span id="scope-broad-count">—</span><code id="scope-broad-fingerprint" class="scope-fingerprint">—</code></dd>
+          </div>
+          <div>
+            <dt>Expanded Pool</dt>
+            <dd><span id="scope-expanded-count">—</span><code id="scope-expanded-fingerprint" class="scope-fingerprint">—</code></dd>
+          </div>
+          <div>
+            <dt>Final Top-10</dt>
+            <dd><span id="scope-final-count">—</span><code id="scope-final-fingerprint" class="scope-fingerprint">—</code></dd>
+          </div>
+        </dl>
         <div class="pane-heading">
           <h2 id="candidate-title">Final Review Docket</h2>
           <code id="fingerprint">candidate seal —</code>
@@ -77,6 +91,6 @@
       <span id="provenance-note">Fixture mode is deterministic UI/test data, never experiment evidence.</span>
       <a href="/api/evaluation">Raw frozen evaluation JSON</a>
     </footer>
-    <script src="/static/evaluation.js?v=6" defer></script>
+    <script src="/static/evaluation.js?v=7" defer></script>
   </body>
 </html>

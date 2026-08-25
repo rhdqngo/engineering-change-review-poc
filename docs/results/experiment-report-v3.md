@@ -45,5 +45,5 @@ No accuracy threshold was used for acceptance. V3 is accepted because the frozen
 
 - `publish-run` validated the terminal checkpoint's generation/SHA seal and the complete run before changing `published/demo.json`.
 - `verify-cloud-run.ps1` passed GCS pointer integrity, service/Job same digest, dedicated identities, least-privilege IAM, private unauthenticated 403, and structured-log completeness for one start, 18 terminal cases, and one completion.
-- Actual browser review verified cold start, disabled reload, published v3 provenance, representative case values, and rejected-evidence non-exposure, but failed final UI acceptance on stale-response sequencing, narrow Reload wrapping, and keyboard focus restoration. See `docs/ui/reviews/2026-08-20-published-v3-docket.md`.
+- Actual browser review verified cold start, disabled reload, published v3 provenance, representative case values, and rejected-evidence non-exposure, but failed final UI acceptance on stale-response sequencing, narrow Reload wrapping, and keyboard focus restoration.
 - Tracked artifacts: `results/runs/vertex-adk-v3.json` and `results/runs/vertex-adk-v3.manifest.json`.

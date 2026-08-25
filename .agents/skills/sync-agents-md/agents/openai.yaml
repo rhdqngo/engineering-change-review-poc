@@ -1,7 +1,0 @@
-interface:
-  display_name: "Sync AGENTS.md"
-  short_description: "Inspect the repository and atomically synchronize only the two managed blocks in AGENTS.md."
-  default_prompt: "Validate the current repository manifests and commands, then synchronize only the PROJECT_PROFILE and PROJECT_COMMANDS managed blocks in AGENTS.md. Do not modify any other instructions."
-
-policy:
-  allow_implicit_invocation: false

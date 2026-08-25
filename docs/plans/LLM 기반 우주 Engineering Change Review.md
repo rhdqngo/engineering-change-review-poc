@@ -459,7 +459,7 @@ Metrics는 전체와 유형별로 계산한다.
 
 ## 20. GCP와 승인 경계
 
-- project: `iceu-687`
+- project: `<your-gcp-project-id>`
 - Cloud Run region: `asia-northeast3`
 - Vertex embedding location: `global`
 - private service: `ecr-poc`
